@@ -1,0 +1,3 @@
+# ignore automatic checkpoints
+.ipynb_checkpoints/*
+__pycache__
