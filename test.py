@@ -20,6 +20,10 @@ def f (x, l=2*np.pi):
 N = 100
 noise = 0.7
 
+def f_data(eps=noise, N=N):
+    x = np.linspace(0, 2*np.pi, N)
+    return x, f(x) + np.random.normal(0, eps, N)
+    
 # Use a seed, to ensure that the results are reproducible
 seed = 0
 np.random.seed(seed)
@@ -28,10 +32,11 @@ np.random.seed(seed)
 # x_pred --> locations where we want to make predictions, i.e. everywhere
 # x      --> locations where we observe data
 x_pred = np.linspace(0, 2*np.pi, 1000)
-x = np.linspace(0, 2*np.pi, N)
+
 
 # Generate the observed data
-t = f(x) + np.random.normal(0, noise, N)
+# t = f(x) + np.random.normal(0, noise, N)
+x, t = f_data(noise, N)
 
 # Define the prediction locations
 # (note that these are different from the locations where we observed our data)
@@ -70,7 +75,9 @@ y_1 = KNN(x, t, x_pred, 1)
 # ax.set_ylim((-2.5, 2.5))
 # plt.legend(loc='lower left')
 
-plot = magicplotter(x, t, x_pred, f(x_pred), x_pred, y_1)
+# plot = magicplotter(x, t, x_pred, f(x_pred), x_pred, y_1)
+
+plot = magicplotter(f_data, f, KNN, x_pred, x_pred)
 
 # Adjust the main plot to make room for the sliders
 # plt.subplots_adjust(left=0.25, bottom=0.33)
@@ -149,11 +156,11 @@ def update(event):
     
     fig.canvas.draw_idle()
 
-plot.add_slider('eps', update)
-plot.add_slider('k', update)
-plot.add_slider('N', update)
-plot.add_slider('l', update)
-
+plot.add_slider('eps')
+plot.add_slider('k')
+plot.add_slider('N')
+plot.add_slider('l')
+    
 # # Connect the update function to each slider
 # k_slider.on_changed(update)
 # N_slider.on_changed(update)

@@ -60,13 +60,27 @@ class magicplotter:
     h = 6
     r = h / w
 
-    def __init__(self, x_data, y_data, x_truth, y_truth, x_pred, y_pred):
+    # Create the initial plot
+    def __init__(self, f_data, f_truth, f_pred, x_truth = None, x_pred = None):
+
+        # Store all variables that were passed to the init function
+        self.f_data = f_data
+        self.f_truth = f_truth
+        self.f_pred = f_pred
+        self.x_data, self.y_data = self.f_data()
+        self.x_truth = self.x_data if x_truth is None else x_truth
+        self.x_pred = self.x_truth if x_pred is None else x_pred
+        self.y_truth = self.f_truth(self.x_truth)
+        self.y_pred = self.f_pred(self.x_data, self.y_data, self.x_pred)
+
+        # Create an empty dictionary, which will later store all slider values
+        self.slider_dict = {}
 
         # Create a figure and add the data, truth, and prediction
         self.fig, self.ax = plt.subplots(figsize=(self.w,self.h))
-        self.data, = plt.plot(x_data, y_data, 'x', label=r'Noisy data $(x,t)$')
-        self.truth, = plt.plot(x_truth, y_truth, 'k-', label=r'Ground truth $f(x)$')
-        self.pred, = plt.plot(x_pred, y_pred, '-', label=r'Prediction $y(x)$, $k=1$')
+        self.data, = plt.plot(self.x_data, self.y_data, 'x', label=r'Noisy data $(x,t)$')
+        self.truth, = plt.plot(self.x_truth, self.y_truth, 'k-', label=r'Ground truth $f(x)$')
+        self.pred, = plt.plot(self.x_pred, self.y_pred, '-', label=r'Prediction $y(x)$, $k=1$')
             
         self.ax.set_xlabel('x')
         self.ax.set_ylabel('t')
@@ -77,8 +91,41 @@ class magicplotter:
         self.hor_sliders = []
         self.ver_sliders = []
         self.buttons = []
+
+    # Define the update function that will be called when a slider is changed
+    def update_plot(self, event):
+
+        # Get the slider values
+        # k = int(min(k_slider.val, N_slider.val))
+        # N = int(N_slider.val)
+        # l = l_slider.val
+        # eps = eps_slider.val
         
-    def add_slider(self, var, update, **settings):
+        # Go through all sliders in the dictionary, and store their values in a kwargs dict
+        kwargs = {}
+        
+        for val, slider in self.slider_dict.items():
+            
+            # Check if the slider should return an integer
+            if slider.valfmt == '%0.0f':
+                kwargs[val] = int(slider.val)
+            else:
+                kwargs[val] = slider.val
+            
+        self.x_data, self.y_data = self.f_data(**kwargs)
+        self.y_truth = self.f_truth(self.x_truth, **kwargs)
+        self.y_pred = self.f_pred(self.x_data, self.y_data, self.x_pred, **kwargs)
+        
+        # Update the ground truth and the data in the plots
+        self.data.set_data(self.x_data, self.y_data)
+        self.truth.set_data(self.x_truth, self.y_truth)
+        self.pred.set_data(self.x_pred, self.y_pred)
+        
+        # Allow for automatic updating of the plot
+        self.fig.canvas.draw_idle()
+        
+    # Add a slider to the bottom or left side of the plot
+    def add_slider(self, var, **settings):
         
         # Check if the variable is in defaults
         def_settings = self.defaults.get(var, {})
@@ -112,8 +159,11 @@ class magicplotter:
         # Adjust the plot to make room for the added slider
         self.adjust_plot()
         
+        # Add the slider to the dictionary that will store the slider values
+        self.slider_dict[var] = slider
+
         # Add an event to the slider
-        slider.on_changed(update)
+        slider.on_changed(self.update_plot)
 
     # Adjust the plot to make room for the sliders
     def adjust_plot(self):
@@ -139,7 +189,4 @@ class magicplotter:
 
             # Set the position of the slider
             slider.ax.set_position([left - (0.15 + 0.125 * i) * r, bottom, 0.03 * r, 1 - bottom - 0.15])
-    
-    
-    
     
