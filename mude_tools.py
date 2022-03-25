@@ -79,8 +79,8 @@ class magicplotter:
         self.y_pred = self.f_pred(self.x_data, self.y_data, self.x_pred)
 
         # Create an empty dictionary, which will later store all slider values
-        self.slider_dict = {}
-        self.button_dict = {}
+        self.sliders = {}
+        self.buttons = {}
         
         # Create a figure and add the data, truth, and prediction
         self.fig, self.ax = plt.subplots(figsize=(self.w,self.h))
@@ -93,11 +93,6 @@ class magicplotter:
         self.ax.set_ylim((-2.5, 2.5))
         plt.legend(loc='lower left')
             
-        # Store the sliders and buttons in lists
-        self.hor_sliders = []
-        self.ver_sliders = []
-        self.buttons = []
-
     # Define the update function that will be called when a slider is changed
     def update_plot(self, event):
 
@@ -110,7 +105,7 @@ class magicplotter:
         # Go through all sliders in the dictionary, and store their values in a kwargs dict
         kwargs = {}
         
-        for val, slider in self.slider_dict.items():
+        for val, slider in self.sliders.items():
             
             # Check if the slider should return an integer
             if slider.valfmt == '%0.0f':
@@ -138,10 +133,10 @@ class magicplotter:
         
         if self.truth.get_alpha() is None:
             self.truth.set_alpha(0)
-            self.button_dict['truth'].label.set_text('Show truth')
+            self.buttons['truth'].label.set_text('Show truth')
         else:
             self.truth.set_alpha(None)
-            self.button_dict['truth'].label.set_text('Hide truth')
+            self.buttons['truth'].label.set_text('Hide truth')
 
         self.update_plot(event)        
     
@@ -159,7 +154,7 @@ class magicplotter:
         self.seed = 0
         
         # Reset all sliders
-        for slider in self.slider_dict.values():
+        for slider in self.sliders.values():
             slider.reset()
 
         # Show the truth again if necessary
@@ -185,7 +180,7 @@ class magicplotter:
         # Create the slider
         # Note: it is important that the slider is not created in exactly the same place as before
         # otherwise, matplotlib will reuse the same axis
-        ax_slider = self.fig.add_axes([0.5 + 0.1 * len(self.slider_dict), 0.5, 0.1, 0.1])
+        ax_slider = self.fig.add_axes([0.5 + 0.1 * len(self.sliders), 0.5, 0.1, 0.1])
         slider = Slider(
             ax=ax_slider,
             label=label,
@@ -196,14 +191,8 @@ class magicplotter:
             orientation=orientation
         )
 
-        # Store the slider
-        if orientation == 'horizontal':
-            self.hor_sliders.append(slider)
-        elif orientation == 'vertical':
-            self.ver_sliders.append(slider)
-
         # Add the slider to the dictionary that will store the slider values
-        self.slider_dict[var] = slider
+        self.sliders[var] = slider
 
         # Add an event to the slider
         slider.on_changed(self.update_plot)
@@ -224,7 +213,7 @@ class magicplotter:
         # Create the button
         # Note: it is important that the button is not created in exactly the same place as before
         # otherwise, matplotlib will reuse the same axis
-        ax_button = self.fig.add_axes([0.1 * len(self.button_dict), 0., 0.1, 0.1])
+        ax_button = self.fig.add_axes([0.1 * len(self.buttons), 0., 0.1, 0.1])
         button = Button(
             ax=ax_button,
             label=label,
@@ -232,7 +221,7 @@ class magicplotter:
         )
         
         # Add the slider to the dictionary that will store the slider values
-        self.button_dict[var] = button
+        self.buttons[var] = button
 
         # Add an event to the slider
         if var == 'truth':
@@ -257,11 +246,11 @@ class magicplotter:
         button_thick = 0.04
         button_length = 0.15
 
-        hor_sliders = [slider for slider in self.slider_dict.values() if slider.orientation=='horizontal']
-        ver_sliders = [slider for slider in self.slider_dict.values() if slider.orientation=='vertical']
+        hor_sliders = [slider for slider in self.sliders.values() if slider.orientation=='horizontal']
+        ver_sliders = [slider for slider in self.sliders.values() if slider.orientation=='vertical']
         
         # Get all the sizes of the main plot
-        bottom = max(hor_label_space + (hor_slider_space + slider_thick) * len(hor_sliders) + (hor_slider_space + button_thick) * np.sign(len(self.button_dict)), 0.1)
+        bottom = max(hor_label_space + (hor_slider_space + slider_thick) * len(hor_sliders) + (hor_slider_space + button_thick) * np.sign(len(self.buttons)), 0.1)
         left = max(ver_label_space + (ver_slider_space + slider_thick) * len(ver_sliders), 0.2)
         top = 0.1
         right = 0.1
@@ -296,7 +285,7 @@ class magicplotter:
         button_space = (width - n_button * button_length) / (n_button-1)
 
         # Set the position of the buttons one by one
-        for val, button in self.button_dict.items():
+        for val, button in self.buttons.items():
             
             # Find the left side of the button
             if val == 'truth':
@@ -312,3 +301,9 @@ class magicplotter:
                  bottom - hor_label_space - (hor_slider_space + slider_thick) * len(hor_sliders) - button_thick,
                  button_length,
                  button_thick])
+            
+    # Define a show function, so importing matplotlib is not strictly necessary in the notebooks
+    def show(self):
+        
+        # Forward to plt.show()
+        plt.show()
