@@ -20,7 +20,12 @@ def f (x, l=2*np.pi):
 N = 100
 noise = 0.7
 
-def f_data(eps=noise, N=N):
+def f_data(eps=noise, N=N, **kwargs):
+    
+    # Use a seed if necessary
+    if 'seed' in kwargs:
+        np.random.seed(kwargs['seed'])
+
     x = np.linspace(0, 2*np.pi, N)
     return x, f(x) + np.random.normal(0, eps, N)
     
@@ -142,7 +147,7 @@ def update(event):
     
     # Generate the noisy data again
     np.random.seed(seed)
-
+right
     x = np.linspace(0, 2*np.pi, N)
     t = f(x, l) + np.random.normal(0, eps, N)
     
@@ -160,7 +165,11 @@ plot.add_slider('eps')
 plot.add_slider('k')
 plot.add_slider('N')
 plot.add_slider('l')
-    
+
+plot.add_button('truth')
+plot.add_button('reset')
+plot.add_button('seed')
+
 # # Connect the update function to each slider
 # k_slider.on_changed(update)
 # N_slider.on_changed(update)
