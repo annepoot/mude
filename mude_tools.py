@@ -139,7 +139,9 @@ class magicplotter:
         label = settings['label'] if 'label' in settings else def_settings['label']
         
         # Create the slider
-        ax_slider = self.fig.add_axes([0., 0., 0.1, 0.1])
+        # Note: it is important that the slider is not created in exactly the same place as before
+        # otherwise, matplotlib will reuse the same axis
+        ax_slider = self.fig.add_axes([0.1 * len(self.slider_dict), 0., 0.1, 0.1])
         slider = Slider(
             ax=ax_slider,
             label=label,
@@ -149,29 +151,29 @@ class magicplotter:
             valfmt=valfmt,
             orientation=orientation
         )
-
+        
         # Store the slider
         if orientation == 'horizontal':
             self.hor_sliders.append(slider)
         elif orientation == 'vertical':
             self.ver_sliders.append(slider)
 
-        # Adjust the plot to make room for the added slider
-        self.adjust_plot()
-        
         # Add the slider to the dictionary that will store the slider values
         self.slider_dict[var] = slider
 
         # Add an event to the slider
         slider.on_changed(self.update_plot)
 
+        # Adjust the plot to make room for the added slider
+        self.adjust_plot()
+        
     # Adjust the plot to make room for the sliders
     def adjust_plot(self):
-        
-        r = self.r
-        hor_sliders = self.hor_sliders
-        ver_sliders = self.ver_sliders
 
+        r = self.r
+        hor_sliders = [slider for slider in self.slider_dict.values() if slider.orientation=='horizontal']
+        ver_sliders = [slider for slider in self.slider_dict.values() if slider.orientation=='vertical']
+        
         # Make room for the sliders
         bottom = 0.1 + 0.05 * len(hor_sliders) if len(hor_sliders) > 0 else 0
         left = (0.15 + 0.125 * len(ver_sliders)) * r if len(ver_sliders) > 0 else 0
