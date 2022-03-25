@@ -13,7 +13,7 @@ from mude_tools import magicplotter
 ##############################
 
 # The true function relating t to x
-def f (x, l=2*np.pi):
+def f (x, l=2*np.pi, **kwargs):
     return np.sin(x*2*np.pi/l)
 
 # Define the number of measurements, and how noisy they are
@@ -49,7 +49,7 @@ x, t = f_data(noise, N)
 x_pred = np.linspace(0, 2*np.pi, 1000)
 
 # Define a function that makes a KNN prediction at the given locations, based on the given (x,t) data
-def KNN(x=x, t=t, x_pred=x_pred, k=1):
+def KNN(x=x, t=t, x_pred=x_pred, k=1, **kwargs):
     
     # Convert x and x_pred to a column vector in order for KNeighborsRegresser to work
     X = x.reshape(-1,1)

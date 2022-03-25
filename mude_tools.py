@@ -63,36 +63,67 @@ class magicplotter:
     r = h / w
 
     # Create the initial plot
-    def __init__(self, f_data, f_truth, f_pred, x_truth = None, x_pred = None):
+    def __init__(self, f_data, f_truth, f_pred, x_truth = None, x_pred = None, **settings):
 
         # Define a seed to make sure all results are reproducible
         self.seed = 0
-
-        # Store all variables that were passed to the init function
-        self.f_data = f_data
-        self.f_truth = f_truth
-        self.f_pred = f_pred
-        self.x_data, self.y_data = self.f_data(seed=self.seed)
-        self.x_truth = self.x_data if x_truth is None else x_truth
-        self.x_pred = self.x_truth if x_pred is None else x_pred
-        self.y_truth = self.f_truth(self.x_truth)
-        self.y_pred = self.f_pred(self.x_data, self.y_data, self.x_pred)
 
         # Create an empty dictionary, which will later store all slider values
         self.sliders = {}
         self.buttons = {}
         
+        # Collect all key word arguments
+        kwargs = self.collect_kwargs()
+
+        # Store all variables that were passed to the init function
+        self.f_data = f_data
+        self.f_truth = f_truth
+        self.f_pred = f_pred
+        self.x_data, self.y_data = self.f_data(**kwargs)
+        self.x_truth = self.x_data if x_truth is None else x_truth
+        self.x_pred = self.x_truth if x_pred is None else x_pred
+        self.y_truth = self.f_truth(self.x_truth, **kwargs)
+        
+        # Compute the prediction and training / validation errors
+        pred = self.f_pred(self.x_data, self.y_data, self.x_pred, **kwargs)
+        if hasattr(pred[0], "__len__"):
+            self.y_pred = pred[0]
+            self.train_mse = None if len(pred) <= 1 else pred[1]
+            self.val_mse = None if len(pred) <= 2 else pred[2]
+        else:
+            self.y_pred = pred
+            self.train_mse = None
+            self.val_mse = None
+
+        # Add the training / validation errors to the dictionary
+        if not self.train_mse is None:
+            kwargs['train_mse'] = self.train_mse
+        if not self.val_mse is None:
+            kwargs['val_mse'] = self.val_mse
+
+        # Get additional settings like the original plot title and labels
+        self.title = settings.get('title', None)
+        self.data_label = settings.get('data_label', r'Noisy data $(x,t)$')
+        self.truth_label = settings.get('truth_label', r'Ground truth $f(x)$')
+        self.pred_label = settings.get('pred_label', r'Prediction $y(x)$, $k={k}$')
+        
         # Create a figure and add the data, truth, and prediction
         self.fig, self.ax = plt.subplots(figsize=(self.w,self.h))
-        self.data, = plt.plot(self.x_data, self.y_data, 'x', label=r'Noisy data $(x,t)$')
-        self.truth, = plt.plot(self.x_truth, self.y_truth, 'k-', label=r'Ground truth $f(x)$')
-        self.pred, = plt.plot(self.x_pred, self.y_pred, '-', label=r'Prediction $y(x)$, $k=1$')
-            
+        self.data, = plt.plot(self.x_data, self.y_data, 'x', label=self.data_label.format(**kwargs))
+        self.truth, = plt.plot(self.x_truth, self.y_truth, 'k-', label=self.truth_label.format(**kwargs))
+        self.pred, = plt.plot(self.x_pred, self.y_pred, '-', label=self.pred_label.format(**kwargs))
+        
         self.ax.set_xlabel('x')
         self.ax.set_ylabel('t')
         self.ax.set_ylim((-2.5, 2.5))
-        plt.legend(loc='lower left')
-            
+        self.ax.legend(loc='lower left')
+
+        # Update the title
+        if self.title is None:
+            self.ax.set_title(None)
+        else:
+            self.ax.set_title(self.title.format(**kwargs))
+
     # Define the update function that will be called when a slider is changed
     def update_plot(self, event):
 
@@ -103,28 +134,60 @@ class magicplotter:
         # eps = eps_slider.val
         
         # Go through all sliders in the dictionary, and store their values in a kwargs dict
-        kwargs = {}
+        kwargs = self.collect_kwargs()
         
-        for val, slider in self.sliders.items():
+        # for val, slider in self.sliders.items():
             
-            # Check if the slider should return an integer
-            if slider.valfmt == '%0.0f':
-                kwargs[val] = int(slider.val)
-            else:
-                kwargs[val] = slider.val
+        #     # Check if the slider should return an integer
+        #     if slider.valfmt == '%0.0f':
+        #         kwargs[val] = int(slider.val)
+        #     else:
+        #         kwargs[val] = slider.val
         
-        # Add the current seed to the dictionary
-        kwargs['seed'] = self.seed
-        
+        # # Add the current seed to the dictionary
+        # kwargs['seed'] = self.seed
+
+        # Recompute the data and the truth
         self.x_data, self.y_data = self.f_data(**kwargs)
         self.y_truth = self.f_truth(self.x_truth, **kwargs)
-        self.y_pred = self.f_pred(self.x_data, self.y_data, self.x_pred, **kwargs)
+        
+        # Recompute the prediction and training / validation errors
+        pred = self.f_pred(self.x_data, self.y_data, self.x_pred, **kwargs)
+        
+        print(len(pred))
+        
+        if hasattr(pred[0], "__len__"):
+            self.y_pred = pred[0]
+            self.train_mse = None if len(pred) <= 1 else pred[1]
+            self.val_mse = None if len(pred) <= 2 else pred[2]
+        else:
+            self.y_pred = pred
+            self.train_mse = None
+            self.val_mse = None
+
+        # Add the training / validation errors to the dictionary
+        if not self.train_mse is None:
+            kwargs['train_mse'] = self.train_mse
+        if not self.val_mse is None:
+            kwargs['val_mse'] = self.val_mse
 
         # Update the ground truth and the data in the plots
         self.data.set_data(self.x_data, self.y_data)
         self.truth.set_data(self.x_truth, self.y_truth)
         self.pred.set_data(self.x_pred, self.y_pred)
         
+        # Update the legend
+        self.data.set_label(self.data_label.format(**kwargs))
+        self.truth.set_label(self.truth_label.format(**kwargs))
+        self.pred.set_label(self.pred_label.format(**kwargs))
+        self.ax.legend(loc='lower left')
+
+        # Update the title
+        if self.title is None:
+            self.ax.set_title(None)
+        else:
+            self.ax.set_title(self.title.format(**kwargs))
+
         # Allow for automatic updating of the plot
         self.fig.canvas.draw_idle()
     
@@ -267,7 +330,7 @@ class magicplotter:
             slider.ax.set_position(
                 [left, 
                  bottom - hor_label_space - slider_thick - (hor_slider_space + slider_thick) * i,
-                 1 - left - right,
+                 width,
                  slider_thick])
     
         # Set the position of the vertical sliders one by one
@@ -278,7 +341,7 @@ class magicplotter:
                 [left - (ver_label_space + slider_thick + (ver_slider_space + slider_thick) * i) * r, 
                  bottom, 
                  slider_thick * r,
-                 1 - bottom - top])
+                 height])
             
         # Calculate the spacing needed for 3 buttons
         n_button = 3
@@ -301,9 +364,41 @@ class magicplotter:
                  bottom - hor_label_space - (hor_slider_space + slider_thick) * len(hor_sliders) - button_thick,
                  button_length,
                  button_thick])
+    
+    # Define a function that collects all key word arguments
+    def collect_kwargs(self):
+        
+        # Initialize an empty dictionary
+        kwargs = {}
+        
+        # First, go through all sliders in the default settings and store their initial values
+        for val, val_dict in self.defaults.items():
             
+            # Check if the slider has a initial value
+            if 'valinit' in val_dict:
+                
+                # If so, store it in the kwargs
+                kwargs[val] = val_dict['valinit']
+        
+        # Then, go through all current sliders, and store their current values
+        for val, slider in self.sliders.items():
+            
+            # Check if the slider should return an integer
+            if slider.valfmt == '%0.0f':
+                kwargs[val] = int(slider.val)
+            else:
+                kwargs[val] = slider.val
+        
+        # Add the current seed to the dictionary
+        kwargs['seed'] = self.seed
+
+        return kwargs
+
     # Define a show function, so importing matplotlib is not strictly necessary in the notebooks
     def show(self):
         
+        # Update the plot
+        self.update_plot(0)
+
         # Forward to plt.show()
         plt.show()
