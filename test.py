@@ -25,7 +25,7 @@ def f_data(eps=noise, N=N, **kwargs):
     # Use a seed if necessary
     if 'seed' in kwargs:
         np.random.seed(kwargs['seed'])
-        
+    
     x = np.linspace(0, 2*np.pi, N)
 
     return x, f(x) + np.random.normal(0, eps, N)
@@ -38,7 +38,6 @@ np.random.seed(seed)
 # x_pred --> locations where we want to make predictions, i.e. everywhere
 # x      --> locations where we observe data
 x_pred = np.linspace(0, 2*np.pi, 1000)
-
 
 # Generate the observed data
 # t = f(x) + np.random.normal(0, noise, N)
@@ -77,5 +76,7 @@ plot.add_slider('l')
 plot.add_button('truth')
 plot.add_button('reset')
 plot.add_button('seed')
+
+plot.add_sidebar()
 
 plot.show()

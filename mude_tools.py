@@ -2,6 +2,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button
+from sklearn.utils import shuffle
 
 class magicplotter:
     
@@ -39,6 +40,14 @@ class magicplotter:
             'orientation':'horizontal',
             'label':r'Wave length ($l$)'
         },
+        'val_pct':{
+            'valmin':0,
+            'valmax':50,
+            'valinit':0,
+            'valfmt':None,
+            'orientation':'horizontal',
+            'label':r'Validation size ($\%$)'
+        },
         'truth':{
             'index':1,
             'hovercolor':'0.975',
@@ -72,6 +81,9 @@ class magicplotter:
         self.sliders = {}
         self.buttons = {}
         
+        # Store the additional settings
+        self.settings = settings
+
         # Collect all key word arguments
         kwargs = self.collect_kwargs()
 
@@ -84,35 +96,60 @@ class magicplotter:
         self.x_pred = self.x_truth if x_pred is None else x_pred
         self.y_truth = self.f_truth(self.x_truth, **kwargs)
         
-        # Compute the prediction and training / validation errors
-        pred = self.f_pred(self.x_data, self.y_data, self.x_pred, **kwargs)
-        if hasattr(pred[0], "__len__"):
-            self.y_pred = pred[0]
-            self.train_mse = None if len(pred) <= 1 else pred[1]
-            self.val_mse = None if len(pred) <= 2 else pred[2]
+        # Split the data into training and validation
+        if int(kwargs['val_pct']) == 0:
+            
+            # Use everything for training if the validation percentage is 0
+            self.x_train = self.x_data
+            self.y_train = self.y_data
+            self.x_val = None
+            self.y_val = None
+        
         else:
-            self.y_pred = pred
-            self.train_mse = None
-            self.val_mse = None
+            
+            # Otherwise, split the training and validation data
+            x_shuffle, y_shuffle = shuffle(self.x_data, self.y_data, random_state=self.seed)
+            N_split = int(kwargs['N'] * (1-kwargs['val_pct']/100))
+            self.x_train = x_shuffle[:N_split]
+            self.y_train = y_shuffle[:N_split]
+            self.x_val = x_shuffle[N_split:]
+            self.y_val = y_shuffle[N_split:]
+    
+        # Compute the prediction in the prediction locations
+        self.y_pred = self.f_pred(self.x_train, self.y_train, self.x_pred, **kwargs)
+        
+        # Compute the training and validation errors
+        train_pred = self.f_pred(self.x_train, self.y_train, self.x_train, **kwargs)
+        self.train_mse = sum((self.y_train - train_pred)**2) / len(self.x_train)
+
+        if self.x_val is None:
+            self.val_mse = 0
+        else:
+            val_pred = self.f_pred(self.x_train, self.y_train, self.x_val, **kwargs)
+            self.val_mse = sum((self.y_val - val_pred)**2) / len(self.x_val)
 
         # Add the training / validation errors to the dictionary
-        if not self.train_mse is None:
-            kwargs['train_mse'] = self.train_mse
-        if not self.val_mse is None:
-            kwargs['val_mse'] = self.val_mse
+        kwargs['train_mse'] = self.train_mse
+        kwargs['val_mse'] = self.val_mse
 
         # Get additional settings like the original plot title and labels
         self.title = settings.get('title', None)
-        self.data_label = settings.get('data_label', r'Noisy data $(x,t)$')
+        self.data_label = settings.get('data_label', r'Training data $(x,t)$')
         self.truth_label = settings.get('truth_label', r'Ground truth $f(x)$')
         self.pred_label = settings.get('pred_label', r'Prediction $y(x)$, $k={k}$')
+        self.val_label = settings.get('val_label', r'Validation data $(x,t)$')
         
         # Create a figure and add the data, truth, and prediction
         self.fig, self.ax = plt.subplots(figsize=(self.w,self.h))
-        self.data, = plt.plot(self.x_data, self.y_data, 'x', label=self.data_label.format(**kwargs))
-        self.truth, = plt.plot(self.x_truth, self.y_truth, 'k-', label=self.truth_label.format(**kwargs))
-        self.pred, = plt.plot(self.x_pred, self.y_pred, '-', label=self.pred_label.format(**kwargs))
+        self.plot_truth, = self.ax.plot(self.x_truth, self.y_truth, 'k-', label=self.truth_label.format(**kwargs))
+        self.plot_data, = self.ax.plot(self.x_train, self.y_train, 'x', label=self.data_label.format(**kwargs))
+        self.plot_pred, = self.ax.plot(self.x_pred, self.y_pred, '-', label=self.pred_label.format(**kwargs))
         
+        if self.x_val is None:
+            self.plot_val = None
+        else:
+            self.plot_val, = self.ax.plot(self.x_val, self.y_val, 'x', color='purple', label=self.val_label.format(**kwargs))
+
         self.ax.set_xlabel('x')
         self.ax.set_ylabel('t')
         self.ax.set_ylim((-2.5, 2.5))
@@ -123,29 +160,15 @@ class magicplotter:
             self.ax.set_title(None)
         else:
             self.ax.set_title(self.title.format(**kwargs))
+            
+        # Initialize the sidebar axes as None (to make sure that it is defined)
+        self.ax_mse = None
 
     # Define the update function that will be called when a slider is changed
     def update_plot(self, event):
 
-        # Get the slider values
-        # k = int(min(k_slider.val, N_slider.val))
-        # N = int(N_slider.val)
-        # l = l_slider.val
-        # eps = eps_slider.val
-        
         # Go through all sliders in the dictionary, and store their values in a kwargs dict
         kwargs = self.collect_kwargs()
-        
-        # for val, slider in self.sliders.items():
-            
-        #     # Check if the slider should return an integer
-        #     if slider.valfmt == '%0.0f':
-        #         kwargs[val] = int(slider.val)
-        #     else:
-        #         kwargs[val] = slider.val
-        
-        # # Add the current seed to the dictionary
-        # kwargs['seed'] = self.seed
 
         # Recompute the data and the truth
         self.x_data, self.y_data = self.f_data(**kwargs)
@@ -154,32 +177,80 @@ class magicplotter:
         # Recompute the prediction and training / validation errors
         pred = self.f_pred(self.x_data, self.y_data, self.x_pred, **kwargs)
         
-        print(len(pred))
+        # Split the data into training and validation
+        if int(kwargs['val_pct']) == 0:
+            
+            # Use everything for training if the validation percentage is 0
+            self.x_train = self.x_data
+            self.y_train = self.y_data
+            self.x_val = None
+            self.y_val = None
         
-        if hasattr(pred[0], "__len__"):
-            self.y_pred = pred[0]
-            self.train_mse = None if len(pred) <= 1 else pred[1]
-            self.val_mse = None if len(pred) <= 2 else pred[2]
         else:
-            self.y_pred = pred
-            self.train_mse = None
-            self.val_mse = None
+            
+            # Otherwise, split the training and validation data
+            x_shuffle, y_shuffle = shuffle(self.x_data, self.y_data)
+            N_split = int(kwargs['N'] * (1-kwargs['val_pct']/100))
+            self.x_train = x_shuffle[:N_split]
+            self.y_train = y_shuffle[:N_split]
+            self.x_val = x_shuffle[N_split:]
+            self.y_val = y_shuffle[N_split:]
+    
+        # Compute the prediction in the prediction locations
+        self.y_pred = self.f_pred(self.x_train, self.y_train, self.x_pred, **kwargs)
+        
+        # Compute the training and validation errors
+        train_pred = self.f_pred(self.x_train, self.y_train, self.x_train, **kwargs)
+        self.train_mse = sum((self.y_train - train_pred)**2) / len(self.x_train)
+
+        if int(kwargs['val_pct']) == 0:
+            self.val_mse = 0
+        else:
+            val_pred = self.f_pred(self.x_train, self.y_train, self.x_val, **kwargs)
+            self.val_mse = sum((self.y_val - val_pred)**2) / len(self.x_val)
 
         # Add the training / validation errors to the dictionary
-        if not self.train_mse is None:
-            kwargs['train_mse'] = self.train_mse
-        if not self.val_mse is None:
-            kwargs['val_mse'] = self.val_mse
+        kwargs['train_mse'] = self.train_mse
+        kwargs['val_mse'] = self.val_mse
 
         # Update the ground truth and the data in the plots
-        self.data.set_data(self.x_data, self.y_data)
-        self.truth.set_data(self.x_truth, self.y_truth)
-        self.pred.set_data(self.x_pred, self.y_pred)
+        self.plot_data.set_data(self.x_train, self.y_train)
+        self.plot_truth.set_data(self.x_truth, self.y_truth)
+        self.plot_pred.set_data(self.x_pred, self.y_pred)
         
+        if self.x_val is None:
+            if not self.plot_val is None:
+                self.ax.lines.remove(self.plot_val)
+                self.plot_val = None
+        else:
+            if self.plot_val is None:
+                self.plot_val, = self.ax.plot(self.x_val, self.y_val, 'x', color='purple', label=self.val_label.format(**kwargs))
+            else:
+                self.plot_val.set_data(self.x_val, self.y_val)
+            
+        # Update the sidebar if necessary
+        if not self.ax_mse is None:
+            
+            self.plot_train_mse.set_data(0, self.train_mse)
+            
+            if self.x_val is None:
+                if not self.plot_val_mse is None:
+                    self.ax_mse.lines.remove(self.plot_val_mse)
+                    self.plot_val_mse = None
+            else:
+                if self.plot_val_mse is None:
+                    self.plot_val_mse, = self.ax_mse.plot(1, self.val_mse, 'o', color='purple', label='Validation error')
+                else:
+                    self.plot_val_mse.set_data(1, self.val_mse)
+
         # Update the legend
-        self.data.set_label(self.data_label.format(**kwargs))
-        self.truth.set_label(self.truth_label.format(**kwargs))
-        self.pred.set_label(self.pred_label.format(**kwargs))
+        self.plot_data.set_label(self.data_label.format(**kwargs))
+        self.plot_truth.set_label(self.truth_label.format(**kwargs))
+        self.plot_pred.set_label(self.pred_label.format(**kwargs))
+        
+        if not self.plot_val is None:
+            self.plot_val.set_label(self.val_label.format(**kwargs))
+        
         self.ax.legend(loc='lower left')
 
         # Update the title
@@ -297,6 +368,46 @@ class magicplotter:
         # Adjust the plot to make room for the added slider
         self.adjust_plot()
 
+    # Add the mse sidebar to the right side of the plot
+    def add_sidebar(self, **settings):
+        
+        # Make sure that the sidebar doesn't already exist
+        if self.ax_mse is None:
+            
+            # Create the sidebar axes
+            self.ax_mse = self.fig.add_axes([0.8, 0.2, 0.2, 0.8])
+            
+            # Plot both mean square errors
+            self.plot_train_mse, = self.ax_mse.plot(0, self.train_mse, 'o', label='Training error')
+
+            if self.x_val is None:
+                self.plot_val_mse = None
+            else:
+                self.plot_val_mse, = self.ax_mse.plot(1, self.val_mse, 'o', color='purple', label='Validation error')
+            
+            # Set the layout of the sidebar
+            self.ax_mse.yaxis.grid()
+            self.ax_mse.set_xlim((-.9, 1.9))
+            self.ax_mse.set_ylim((-0.05, 1.5))
+            self.ax_mse.set_xticks([0, 1])
+            self.ax_mse.set_xticklabels(['Training', 'Validation'], rotation=45)
+            self.ax_mse.set_ylabel('Mean Squared Error')
+
+        # Adjust the plot to make room for the added sidebar
+        self.adjust_plot()
+
+    # A nice wrapper to add multiple sliders at once
+    def add_sliders(self, *var_list, **settings):
+        
+        for var in var_list:
+            self.add_slider(var, **settings)
+
+    # A nice wrapper to add multiple buttons at once
+    def add_buttons(self, *var_list, **settings):
+        
+        for var in var_list:
+            self.add_button(var, **settings)
+    
     # Adjust the plot to make room for the sliders
     def adjust_plot(self):
 
@@ -308,19 +419,20 @@ class magicplotter:
         ver_label_space = 0.12
         button_thick = 0.04
         button_length = 0.15
-
+        sidebar_width = 0.1
+        
         hor_sliders = [slider for slider in self.sliders.values() if slider.orientation=='horizontal']
         ver_sliders = [slider for slider in self.sliders.values() if slider.orientation=='vertical']
         
         # Get all the sizes of the main plot
-        bottom = max(hor_label_space + (hor_slider_space + slider_thick) * len(hor_sliders) + (hor_slider_space + button_thick) * np.sign(len(self.buttons)), 0.1)
+        bottom = max(hor_label_space + (hor_slider_space + slider_thick) * len(hor_sliders) + (hor_slider_space + button_thick) * (len(self.buttons) > 0), 0.1)
         left = max(ver_label_space + (ver_slider_space + slider_thick) * len(ver_sliders), 0.2)
         top = 0.1
-        right = 0.1
+        right = 0.1 + (sidebar_width + ver_slider_space) * (not self.ax_mse is None)
         height = 1 - top - bottom
         width = 1 - right - left
 
-        # self.fig.subplots_adjust(left=left, bottom=bottom)
+        # Set the size of the main plot
         self.ax.set_position([left, bottom, 1-left-right, 1-bottom-top])
         
         # Set the position of the horizontal sliders one by one
@@ -365,6 +477,19 @@ class magicplotter:
                  button_length,
                  button_thick])
     
+        # Set the position of the sidebar if it exists
+        if not self.ax_mse is None:
+            
+            # Change the size of the main figure
+            self.fig.set_figwidth(self.w + 2)
+
+            # Set the position of the sidebar
+            self.ax_mse.set_position(
+                [1 - right + ver_slider_space,
+                 bottom,
+                 sidebar_width,
+                 height])
+            
     # Define a function that collects all key word arguments
     def collect_kwargs(self):
         
@@ -380,7 +505,12 @@ class magicplotter:
                 # If so, store it in the kwargs
                 kwargs[val] = val_dict['valinit']
         
-        # Then, go through all current sliders, and store their current values
+        # Then, go through all custom settings, and store their values
+        for val, setting in self.settings.items():
+            
+            kwargs[val] = setting
+
+        # Lastly, go through all current sliders, and store their current values
         for val, slider in self.sliders.items():
             
             # Check if the slider should return an integer
