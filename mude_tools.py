@@ -8,7 +8,7 @@ class magicplotter:
     
     # Define the default settings for all sliders
     defaults = {
-        'eps':{
+        'epsilon':{
             'valmin':0,
             'valmax':1,
             'valinit':0.7,
@@ -32,13 +32,45 @@ class magicplotter:
             'orientation':'horizontal',
             'label':r'Training size ($N$)'
         },
-        'l':{
-            'valmin':np.pi/8,
-            'valmax':np.pi*8,
-            'valinit':np.pi*2,
+        'f':{
+            'valmin':1/8,
+            'valmax':8,
+            'valinit':1,
             'valfmt':None,
             'orientation':'horizontal',
-            'label':r'Wave length ($l$)'
+            'label':r'Frequency ($f$)'
+        },
+        'l':{
+            'valmin':1/5,
+            'valmax':5,
+            'valinit':1,
+            'valfmt':None,
+            'orientation':'horizontal',
+            'label':r'Length scale ($l$)'
+        },
+        'degree':{
+            'valmin':1,
+            'valmax':30,
+            'valinit':1,
+            'valfmt':'%0.0f',
+            'orientation':'horizontal',
+            'label':r'Degree ($k$)'
+        },
+        'N_radial':{
+            'valmin':1,
+            'valmax':30,
+            'valinit':5,
+            'valfmt':'%0.0f',
+            'orientation':'horizontal',
+            'label':r'Number of RBFs ($N$)'
+        },
+        'l_radial':{
+            'valmin':1/5,
+            'valmax':5,
+            'valinit':1,
+            'valfmt':None,
+            'orientation':'horizontal',
+            'label':r'Length scale ($l$)'
         },
         'val_pct':{
             'valmin':0,
@@ -72,7 +104,7 @@ class magicplotter:
     r = h / w
 
     # Create the initial plot
-    def __init__(self, f_data, f_truth, f_pred, x_truth = None, x_pred = None, **settings):
+    def __init__(self, f_data, f_truth, f_pred, x_pred = None, x_truth = None, **settings):
 
         # Define a seed to make sure all results are reproducible
         self.seed = 0
@@ -92,8 +124,8 @@ class magicplotter:
         self.f_truth = f_truth
         self.f_pred = f_pred
         self.x_data, self.y_data = self.f_data(**kwargs)
-        self.x_truth = self.x_data if x_truth is None else x_truth
-        self.x_pred = self.x_truth if x_pred is None else x_pred
+        self.x_pred = self.x_data if x_pred is None else x_pred
+        self.x_truth = self.x_pred if x_truth is None else x_truth
         self.y_truth = self.f_truth(self.x_truth, **kwargs)
         
         # Split the data into training and validation
@@ -120,17 +152,17 @@ class magicplotter:
         
         # Compute the training and validation errors
         train_pred = self.f_pred(self.x_train, self.y_train, self.x_train, **kwargs)
-        self.train_mse = sum((self.y_train - train_pred)**2) / len(self.x_train)
+        self.mse_train = sum((self.y_train - train_pred)**2) / len(self.x_train)
 
         if self.x_val is None:
-            self.val_mse = 0
+            self.mse_validation = 0
         else:
             val_pred = self.f_pred(self.x_train, self.y_train, self.x_val, **kwargs)
-            self.val_mse = sum((self.y_val - val_pred)**2) / len(self.x_val)
+            self.mse_validation = sum((self.y_val - val_pred)**2) / len(self.x_val)
 
         # Add the training / validation errors to the dictionary
-        kwargs['train_mse'] = self.train_mse
-        kwargs['val_mse'] = self.val_mse
+        kwargs['mse_train'] = self.mse_train
+        kwargs['mse_validation'] = self.mse_validation
 
         # Get additional settings like the original plot title and labels
         self.title = settings.get('title', None)
@@ -139,8 +171,14 @@ class magicplotter:
         self.pred_label = settings.get('pred_label', r'Prediction $y(x)$, $k={k}$')
         self.val_label = settings.get('val_label', r'Validation data $(x,t)$')
         
-        # Create a figure and add the data, truth, and prediction
-        self.fig, self.ax = plt.subplots(figsize=(self.w,self.h))
+        # Get the given axes from the settings, or create a new figure
+        if 'ax' in settings:
+            self.ax = settings['ax']
+            self.fig = self.ax.figure
+        else:
+            self.fig, self.ax = plt.subplots(figsize=(self.w,self.h))
+
+        # Add the truth, data and prediction        
         self.plot_truth, = self.ax.plot(self.x_truth, self.y_truth, 'k-', label=self.truth_label.format(**kwargs))
         self.plot_data, = self.ax.plot(self.x_train, self.y_train, 'x', label=self.data_label.format(**kwargs))
         self.plot_pred, = self.ax.plot(self.x_pred, self.y_pred, '-', label=self.pred_label.format(**kwargs))
@@ -153,7 +191,14 @@ class magicplotter:
         self.ax.set_xlabel('x')
         self.ax.set_ylabel('t')
         self.ax.set_ylim((-2.5, 2.5))
-        self.ax.legend(loc='lower left')
+        
+        # Check if the legend should be shown, and plot it if so
+        self.hide_legend = settings.get('hide_legend', False)
+        
+        if self.hide_legend:
+            self.ax.legend = None
+        else:
+            self.ax.legend(loc='lower left')
 
         # Update the title
         if self.title is None:
@@ -173,9 +218,6 @@ class magicplotter:
         # Recompute the data and the truth
         self.x_data, self.y_data = self.f_data(**kwargs)
         self.y_truth = self.f_truth(self.x_truth, **kwargs)
-        
-        # Recompute the prediction and training / validation errors
-        pred = self.f_pred(self.x_data, self.y_data, self.x_pred, **kwargs)
         
         # Split the data into training and validation
         if int(kwargs['val_pct']) == 0:
@@ -201,23 +243,25 @@ class magicplotter:
         
         # Compute the training and validation errors
         train_pred = self.f_pred(self.x_train, self.y_train, self.x_train, **kwargs)
-        self.train_mse = sum((self.y_train - train_pred)**2) / len(self.x_train)
+        self.mse_train = sum((self.y_train - train_pred)**2) / len(self.x_train)
 
         if int(kwargs['val_pct']) == 0:
-            self.val_mse = 0
+            self.mse_validation = 0
         else:
             val_pred = self.f_pred(self.x_train, self.y_train, self.x_val, **kwargs)
-            self.val_mse = sum((self.y_val - val_pred)**2) / len(self.x_val)
+            self.mse_validation = sum((self.y_val - val_pred)**2) / len(self.x_val)
 
         # Add the training / validation errors to the dictionary
-        kwargs['train_mse'] = self.train_mse
-        kwargs['val_mse'] = self.val_mse
+        kwargs['mse_train'] = self.mse_train
+        kwargs['mse_validation'] = self.mse_validation
 
         # Update the ground truth and the data in the plots
         self.plot_data.set_data(self.x_train, self.y_train)
-        self.plot_truth.set_data(self.x_truth, self.y_truth)
         self.plot_pred.set_data(self.x_pred, self.y_pred)
-        
+
+        if not self.plot_truth is None:
+            self.plot_truth.set_data(self.x_truth, self.y_truth)
+
         if self.x_val is None:
             if not self.plot_val is None:
                 self.ax.lines.remove(self.plot_val)
@@ -231,27 +275,32 @@ class magicplotter:
         # Update the sidebar if necessary
         if not self.ax_mse is None:
             
-            self.plot_train_mse.set_data(0, self.train_mse)
+            self.plot_mse_train.set_data(0, self.mse_train)
             
             if self.x_val is None:
-                if not self.plot_val_mse is None:
-                    self.ax_mse.lines.remove(self.plot_val_mse)
-                    self.plot_val_mse = None
+                if not self.plot_mse_val is None:
+                    self.ax_mse.lines.remove(self.plot_mse_val)
+                    self.plot_mse_val = None
             else:
-                if self.plot_val_mse is None:
-                    self.plot_val_mse, = self.ax_mse.plot(1, self.val_mse, 'o', color='purple', label='Validation error')
+                if self.plot_mse_val is None:
+                    self.plot_mse_val, = self.ax_mse.plot(1, self.mse_validation, 'o', color='purple', label='Validation error')
                 else:
-                    self.plot_val_mse.set_data(1, self.val_mse)
+                    self.plot_mse_val.set_data(1, self.mse_validation)
 
         # Update the legend
         self.plot_data.set_label(self.data_label.format(**kwargs))
-        self.plot_truth.set_label(self.truth_label.format(**kwargs))
         self.plot_pred.set_label(self.pred_label.format(**kwargs))
         
+        if not self.plot_truth is None:
+            self.plot_truth.set_label(self.truth_label.format(**kwargs))
+
         if not self.plot_val is None:
             self.plot_val.set_label(self.val_label.format(**kwargs))
         
-        self.ax.legend(loc='lower left')
+        if self.hide_legend:
+            self.ax.legend = None
+        else:
+            self.ax.legend(loc='lower left')
 
         # Update the title
         if self.title is None:
@@ -265,12 +314,13 @@ class magicplotter:
     # Define the function that will be called when the hide/show truth button is called
     def toggle_truth(self, event):
         
-        if self.truth.get_alpha() is None:
-            self.truth.set_alpha(0)
-            self.buttons['truth'].label.set_text('Show truth')
-        else:
-            self.truth.set_alpha(None)
+        if self.plot_truth is None:
+            self.plot_truth, = self.ax.plot(self.x_truth, self.y_truth, 'k-', label=self.truth_label.format(**self.collect_kwargs()))
             self.buttons['truth'].label.set_text('Hide truth')
+        else:
+            self.ax.lines.remove(self.plot_truth)
+            self.plot_truth = None
+            self.buttons['truth'].label.set_text('Show truth')
 
         self.update_plot(event)        
     
@@ -369,8 +419,12 @@ class magicplotter:
         self.adjust_plot()
 
     # Add the mse sidebar to the right side of the plot
-    def add_sidebar(self, **settings):
+    def add_sidebar(self):
         
+        # Add 20% validation set size to the settings if it is not already given
+        if not 'val_pct' in self.settings:
+            self.settings['val_pct'] = 20
+
         # Make sure that the sidebar doesn't already exist
         if self.ax_mse is None:
             
@@ -378,12 +432,12 @@ class magicplotter:
             self.ax_mse = self.fig.add_axes([0.8, 0.2, 0.2, 0.8])
             
             # Plot both mean square errors
-            self.plot_train_mse, = self.ax_mse.plot(0, self.train_mse, 'o', label='Training error')
+            self.plot_mse_train, = self.ax_mse.plot(0, self.mse_train, 'o', label='Training error')
 
             if self.x_val is None:
-                self.plot_val_mse = None
+                self.plot_mse_val = None
             else:
-                self.plot_val_mse, = self.ax_mse.plot(1, self.val_mse, 'o', color='purple', label='Validation error')
+                self.plot_mse_val, = self.ax_mse.plot(1, self.mse_validation, 'o', color='purple', label='Validation error')
             
             # Set the layout of the sidebar
             self.ax_mse.yaxis.grid()
@@ -515,7 +569,7 @@ class magicplotter:
             
             # Check if the slider should return an integer
             if slider.valfmt == '%0.0f':
-                kwargs[val] = int(slider.val)
+                kwargs[val] = round(slider.val)
             else:
                 kwargs[val] = slider.val
         
