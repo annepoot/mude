@@ -32,13 +32,13 @@ class magicplotter:
             'orientation':'horizontal',
             'label':r'Training size ($N$)'
         },
-        'f':{
+        'freq':{
             'valmin':1/8,
             'valmax':8,
             'valinit':1,
             'valfmt':None,
             'orientation':'horizontal',
-            'label':r'Frequency ($f$)'
+            'label':r'Frequency ($freq$)'
         },
         'l':{
             'valmin':1/5,
