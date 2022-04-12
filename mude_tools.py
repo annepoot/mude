@@ -48,6 +48,14 @@ class magicplotter:
             'orientation':'horizontal',
             'label':r'Frequency ($freq$)'
         },
+            'freq':{
+            'valmin':1/8,
+            'valmax':8,
+            'valinit':1,
+            'valfmt':None,
+            'orientation':'horizontal',
+            'label':r'Frequency ($freq$)'
+        },
         'l':{
             'valmin':1/5,
             'valmax':5,
@@ -62,15 +70,15 @@ class magicplotter:
             'valinit':1,
             'valfmt':'%0.0f',
             'orientation':'horizontal',
-            'label':r'Degree ($k$)'
+            'label':r'Degree ($p$)'
         },
-        'N_radial':{
+        'M_radial':{
             'valmin':1,
             'valmax':30,
             'valinit':5,
             'valfmt':'%0.0f',
             'orientation':'horizontal',
-            'label':r'Number of RBFs ($N$)'
+            'label':r'Number of RBFs ($M$)'
         },
         'l_radial':{
             'valmin':1/5,
