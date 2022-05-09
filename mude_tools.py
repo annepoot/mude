@@ -14,7 +14,8 @@ class magicplotter:
             'valinit':0.7,
             'valfmt':None,
             'orientation':'vertical',
-            'label':r'Noise ($\varepsilon$)'
+            'label':r'Noise ($\varepsilon$)',
+            'update':'data'
         },
         'k':{
             'valmin':1,
@@ -22,7 +23,8 @@ class magicplotter:
             'valinit':1,
             'valfmt':'%0.0f',
             'orientation':'horizontal',
-            'label':r'Neighbors ($k$)'
+            'label':r'Neighbors ($k$)',
+            'update':'pred'
         },
         'N':{
             'valmin':1,
@@ -30,7 +32,8 @@ class magicplotter:
             'valinit':100,
             'valfmt':'%0.0f',
             'orientation':'horizontal',
-            'label':r'Training size ($N$)'
+            'label':r'Training size ($N$)',
+            'update':'data'
         },
         'freq':{
             'valmin':1/8,
@@ -38,23 +41,8 @@ class magicplotter:
             'valinit':1,
             'valfmt':None,
             'orientation':'horizontal',
-            'label':r'Frequency ($freq$)'
-        },
-            'freq':{
-            'valmin':1/8,
-            'valmax':8,
-            'valinit':1,
-            'valfmt':None,
-            'orientation':'horizontal',
-            'label':r'Frequency ($freq$)'
-        },
-            'freq':{
-            'valmin':1/8,
-            'valmax':8,
-            'valinit':1,
-            'valfmt':None,
-            'orientation':'horizontal',
-            'label':r'Frequency ($freq$)'
+            'label':r'Frequency ($freq$)',
+            'update':'data'
         },
         'l':{
             'valmin':1/5,
@@ -62,7 +50,8 @@ class magicplotter:
             'valinit':1,
             'valfmt':None,
             'orientation':'horizontal',
-            'label':r'Length scale ($l$)'
+            'label':r'Length scale ($l$)',
+            'update':'pred'
         },
         'degree':{
             'valmin':1,
@@ -70,7 +59,8 @@ class magicplotter:
             'valinit':1,
             'valfmt':'%0.0f',
             'orientation':'horizontal',
-            'label':r'Degree ($p$)'
+            'label':r'Degree ($p$)',
+            'update':'pred'
         },
         'M_radial':{
             'valmin':1,
@@ -78,7 +68,8 @@ class magicplotter:
             'valinit':5,
             'valfmt':'%0.0f',
             'orientation':'horizontal',
-            'label':r'Number of RBFs ($M$)'
+            'label':r'Number of RBFs ($M$)',
+            'update':'pred'
         },
         'l_radial':{
             'valmin':1/5,
@@ -86,7 +77,17 @@ class magicplotter:
             'valinit':1,
             'valfmt':None,
             'orientation':'horizontal',
-            'label':r'Length scale ($l$)'
+            'label':r'Length scale ($l$)',
+            'update':'pred'
+        },
+        'probe':{
+            'valmin':0,
+            'valmax':1,
+            'valinit':0.5,
+            'valfmt':None,
+            'orientation':'horizontal',
+            'label':r'Probe location',
+            'update':'probe'
         },
         'val_pct':{
             'valmin':0,
@@ -94,22 +95,26 @@ class magicplotter:
             'valinit':0,
             'valfmt':None,
             'orientation':'horizontal',
-            'label':r'Validation size ($\%$)'
+            'label':r'Validation size ($\%$)',
+            'update':'data'
         },
         'truth':{
             'index':1,
             'hovercolor':'0.975',
-            'label':'Hide truth'
+            'label':'Hide truth',
+            'update':'truth'
         },
         'seed':{
             'index':2,
             'hovercolor':'0.975',
-            'label':'New seed'
+            'label':'New seed',
+            'update':'seed'
         },
         'reset':{
             'index':3,
             'hovercolor':'0.975',
-            'label':'Reset'
+            'label':'Reset',
+            'update':'reset'
         }
     }
 
@@ -140,45 +145,11 @@ class magicplotter:
         self.f_truth = f_truth
         self.f_pred = f_pred
         self.x_data, self.y_data = self.f_data(**kwargs)
+        self.x_train, self.y_train = self.x_data, self.y_data
         self.x_pred = self.x_data if x_pred is None else x_pred
+        self.y_pred = self.f_pred(self.x_train, self.y_train, self.x_pred, **kwargs)
         self.x_truth = self.x_pred if x_truth is None else x_truth
         self.y_truth = self.f_truth(self.x_truth, **kwargs)
-
-        # Split the data into training and validation
-        if int(kwargs['val_pct']) == 0:
-
-            # Use everything for training if the validation percentage is 0
-            self.x_train = self.x_data
-            self.y_train = self.y_data
-            self.x_val = None
-            self.y_val = None
-
-        else:
-
-            # Otherwise, split the training and validation data
-            x_shuffle, y_shuffle = shuffle(self.x_data, self.y_data, random_state=self.seed)
-            N_split = int(kwargs['N'] * (1-kwargs['val_pct']/100))
-            self.x_train = x_shuffle[:N_split]
-            self.y_train = y_shuffle[:N_split]
-            self.x_val = x_shuffle[N_split:]
-            self.y_val = y_shuffle[N_split:]
-
-        # Compute the prediction in the prediction locations
-        self.y_pred = self.f_pred(self.x_train, self.y_train, self.x_pred, **kwargs)
-
-        # Compute the training and validation errors
-        train_pred = self.f_pred(self.x_train, self.y_train, self.x_train, **kwargs)
-        self.mse_train = sum((self.y_train - train_pred)**2) / len(self.x_train)
-
-        if self.x_val is None:
-            self.mse_validation = 0
-        else:
-            val_pred = self.f_pred(self.x_train, self.y_train, self.x_val, **kwargs)
-            self.mse_validation = sum((self.y_val - val_pred)**2) / len(self.x_val)
-
-        # Add the training / validation errors to the dictionary
-        kwargs['mse_train'] = self.mse_train
-        kwargs['mse_validation'] = self.mse_validation
 
         # Get additional settings like the original plot title and labels
         self.title = settings.get('title', None)
@@ -186,6 +157,7 @@ class magicplotter:
         self.truth_label = settings.get('truth_label', r'Ground truth $f(x)$')
         self.pred_label = settings.get('pred_label', r'Prediction $y(x)$, $k={k}$')
         self.val_label = settings.get('val_label', r'Validation data $(x,t)$')
+        self.hide_legend = settings.get('hide_legend', False)
 
         # Get the given axes from the settings, or create a new figure
         if 'ax' in settings:
@@ -199,34 +171,15 @@ class magicplotter:
         self.plot_data, = self.ax.plot(self.x_train, self.y_train, 'x', label=self.data_label.format(**kwargs))
         self.plot_pred, = self.ax.plot(self.x_pred, self.y_pred, '-', label=self.pred_label.format(**kwargs))
 
-        if self.x_val is None:
-            self.plot_val = None
-        else:
-            self.plot_val, = self.ax.plot(self.x_val, self.y_val, 'x', color='purple', label=self.val_label.format(**kwargs))
-
-        self.ax.set_xlabel('x')
-        self.ax.set_ylabel('t')
-        self.ax.set_ylim((-2.5, 2.5))
-
-        # Check if the legend should be shown, and plot it if so
-        self.hide_legend = settings.get('hide_legend', False)
-
-        if self.hide_legend:
-            self.ax.legend = None
-        else:
-            self.ax.legend(loc='lower left')
-
-        # Update the title
-        if self.title is None:
-            self.ax.set_title(None)
-        else:
-            self.ax.set_title(self.title.format(**kwargs))
-
-        # Initialize the sidebar axes as None (to make sure that it is defined)
+        # Initialize the validation set and sidebar (to ensure they exist)
+        self.plot_val = None
         self.ax_mse = None
 
-    # Define the update function that will be called when a slider is changed
-    def update_plot(self, event):
+        # Call the show function
+        # This also redirects to the update_data function
+        self.show()
+
+    def update_data(self, event):
 
         # Go through all sliders in the dictionary, and store their values in a kwargs dict
         kwargs = self.collect_kwargs()
@@ -254,6 +207,43 @@ class magicplotter:
             self.x_val = x_shuffle[N_split:]
             self.y_val = y_shuffle[N_split:]
 
+        # Update the data and ground truth in the plots
+        self.plot_data.set_data(self.x_train, self.y_train)
+
+        if not self.plot_truth is None:
+            self.plot_truth.set_data(self.x_truth, self.y_truth)
+
+        # Update the validation data set if necessary
+        if self.x_val is None:
+            if not self.plot_val is None:
+                self.ax.lines.remove(self.plot_val)
+                self.plot_val = None
+        else:
+            if self.plot_val is None:
+                self.plot_val, = self.ax.plot(self.x_val, self.y_val, 'x', color='purple', label=self.val_label.format(**kwargs))
+            else:
+                self.plot_val.set_data(self.x_val, self.y_val)
+
+        # Update the legend of the data and ground truth
+        self.plot_data.set_label(self.data_label.format(**kwargs))
+
+        if not self.plot_truth is None:
+            self.plot_truth.set_label(self.truth_label.format(**kwargs))
+
+        if not self.plot_val is None:
+            self.plot_val.set_label(self.val_label.format(**kwargs))
+
+        # Allow for automatic updating of the plot
+        self.fig.canvas.draw_idle()
+
+        # After updating the data, the prediction should be updated as well
+        self.update_pred(event)
+
+    def update_pred(self, event):
+
+        # Go through all sliders in the dictionary, and store their values in a kwargs dict
+        kwargs = self.collect_kwargs()
+
         # Compute the prediction in the prediction locations
         self.y_pred = self.f_pred(self.x_train, self.y_train, self.x_pred, **kwargs)
 
@@ -271,22 +261,8 @@ class magicplotter:
         kwargs['mse_train'] = self.mse_train
         kwargs['mse_validation'] = self.mse_validation
 
-        # Update the data, prediction, and ground truth in the plots
-        self.plot_data.set_data(self.x_train, self.y_train)
+        # Update the prediction in the plots
         self.plot_pred.set_data(self.x_pred, self.y_pred)
-
-        if not self.plot_truth is None:
-            self.plot_truth.set_data(self.x_truth, self.y_truth)
-
-        if self.x_val is None:
-            if not self.plot_val is None:
-                self.ax.lines.remove(self.plot_val)
-                self.plot_val = None
-        else:
-            if self.plot_val is None:
-                self.plot_val, = self.ax.plot(self.x_val, self.y_val, 'x', color='purple', label=self.val_label.format(**kwargs))
-            else:
-                self.plot_val.set_data(self.x_val, self.y_val)
 
         # Update the sidebar if necessary
         if not self.ax_mse is None:
@@ -304,14 +280,7 @@ class magicplotter:
                     self.plot_mse_val.set_data(1, self.mse_validation)
 
         # Update the legend
-        self.plot_data.set_label(self.data_label.format(**kwargs))
         self.plot_pred.set_label(self.pred_label.format(**kwargs))
-
-        if not self.plot_truth is None:
-            self.plot_truth.set_label(self.truth_label.format(**kwargs))
-
-        if not self.plot_val is None:
-            self.plot_val.set_label(self.val_label.format(**kwargs))
 
         if self.hide_legend:
             self.ax.legend = None
@@ -338,14 +307,18 @@ class magicplotter:
             self.plot_truth = None
             self.buttons['truth'].label.set_text('Show truth')
 
-        self.update_plot(event)
+        # Update the legend
+        if self.hide_legend:
+            self.ax.legend = None
+        else:
+            self.ax.legend(loc='lower left')
 
     # Define a function that changes the seed
     def update_seed(self, event):
 
         self.seed += 1
 
-        self.update_plot(event)
+        self.update_data(event)
 
     # Define a function that performs a reset
     def reset_all(self, event):
@@ -358,10 +331,10 @@ class magicplotter:
             slider.reset()
 
         # Show the truth again if necessary
-        if not self.truth.get_alpha() is None:
+        if self.plot_truth is None:
             self.toggle_truth(event)
 
-        self.update_plot(event)
+        self.update_data(event)
 
     # Add a slider to the bottom or left side of the plot
     def add_slider(self, var, **settings):
@@ -376,6 +349,7 @@ class magicplotter:
         valfmt = settings['valfmt'] if 'valfmt' in settings else def_settings['valfmt']
         orientation = settings['orientation'] if 'orientation' in settings else def_settings['orientation']
         label = settings['label'] if 'label' in settings else def_settings['label']
+        update = settings['update'] if 'update' in settings else def_settings['update']
 
         # Create the slider
         # Note: it is important that the slider is not created in exactly the same place as before
@@ -394,8 +368,11 @@ class magicplotter:
         # Add the slider to the dictionary that will store the slider values
         self.sliders[var] = slider
 
+        # Get the correct update function
+        update_func = self.get_update_func(update)
+
         # Add an event to the slider
-        slider.on_changed(self.update_plot)
+        slider.on_changed(update_func)
 
         # Adjust the plot to make room for the added slider
         self.adjust_plot()
@@ -465,6 +442,12 @@ class magicplotter:
 
         # Adjust the plot to make room for the added sidebar
         self.adjust_plot()
+
+    # Add a probe to display the effect region as a function of k
+    def add_probe(self):
+
+        # !!! still needs to be implemented
+        pass
 
     # A nice wrapper to add multiple sliders at once
     def add_sliders(self, *var_list, **settings):
@@ -594,11 +577,27 @@ class magicplotter:
 
         return kwargs
 
+    # This function takes a string and returns the corresponding update function
+    def get_update_func(self, update):
+
+        if update == 'data':
+            return self.update_data
+        elif update == 'pred':
+            return self.update_pred
+        elif update == 'seed':
+            return self.update_seed
+        elif update == 'reset':
+            return self.reset_all
+        elif update == 'truth':
+            return self.toggle_truth
+        elif update == 'probe':
+            return self.update_probe
+
     # Define a show function, so importing matplotlib is not strictly necessary in the notebooks
     def show(self):
 
         # Update the plot
-        self.update_plot(0)
+        self.update_data(0)
 
         # Forward to plt.show()
         plt.show()
@@ -613,7 +612,8 @@ class biasvarianceplotter(magicplotter):
             'valinit':25,
             'valfmt':'%0.0f',
             'orientation':'horizontal',
-            'label':r'# of datasets ($D$)'
+            'label':r'# of datasets ($D$)',
+            'update':'pred'
         }
     }
 
@@ -623,14 +623,14 @@ class biasvarianceplotter(magicplotter):
     # Create the initial plot
     def __init__(self, f_data, f_truth, f_pred, x_pred = None, x_truth = None, **settings):
 
+        # Get additional settings like the original labels
+        self.title = settings.get('title', None)
+        self.bias_label = settings.get('bias_label', r'Bias')
+        self.variance_label = settings.get('variance_label', r'Variance (95% confidence)')
+
         # Perform the initialization of the magicplotter stuff first
+        # This also redirects to the update_pred function
         super().__init__(f_data, f_truth, f_pred, x_pred, x_truth, **settings)
-
-        # Collect all key word arguments
-        kwargs = self.collect_kwargs()
-
-        # Compute the predictions of all D models in the prediction locations
-        self.make_preds(self.x_train, self.x_pred, **kwargs)
 
         # Delete the data from the plot (this is a remnant from magicplotter)
         self.ax.lines.remove(self.plot_data)
@@ -640,28 +640,7 @@ class biasvarianceplotter(magicplotter):
         self.plot_pred.set_color('C0')
         self.pred_label = r'$\mathbb{{E}}_{{\mathcal{{D}}}}[y(x)](k={k})$'
 
-        # Compute the truth in all prediction locations
-        pred_truth = self.f_truth(self.x_pred, **kwargs)
-
-        # Compute the bias by taking the difference between the truth and the mean prediction
-        bias_bottom = np.minimum(self.y_mean_pred, pred_truth)
-        bias_top = np.maximum(self.y_mean_pred, pred_truth)
-
-        # Compute the 95% confidence interval of the variance
-        variance_bottom = bias_bottom-np.sqrt(self.variance)*2
-        variance_top = bias_top+np.sqrt(self.variance)*2
-
-        # Get additional settings like the original labels
-        self.title = settings.get('title', None)
-        self.bias_label = settings.get('bias_label', r'Bias')
-        self.variance_label = settings.get('variance_label', r'Variance (95% confidence)')
-
-        # Add the bias and variance to the plots
-        self.plot_bias = self.ax.fill_between(self.x_pred, bias_bottom, bias_top, alpha=0.6, color='red', label=self.bias_label.format(**kwargs))
-        self.plot_variance_bottom = self.ax.fill_between(self.x_pred, variance_bottom, bias_bottom, color='red', alpha=0.3, label=self.variance_label.format(**kwargs))
-        self.plot_variance_top = self.ax.fill_between(self.x_pred, bias_top, variance_top, color='red', alpha=0.3)
-
-    def update_plot(self, event):
+    def update_pred(self, event):
 
         # Go through all sliders in the dictionary, and store their values in a kwargs dict
         kwargs = self.collect_kwargs()
@@ -684,9 +663,12 @@ class biasvarianceplotter(magicplotter):
         variance_top = bias_top+np.sqrt(self.variance)*2
 
         # Remove the confidence intervals from the plot
-        self.plot_bias.remove()
-        self.plot_variance_bottom.remove()
-        self.plot_variance_top.remove()
+        if 'plot_bias' in vars(self):
+            self.plot_bias.remove()
+        if 'plot_variance_bottom' in vars(self):
+            self.plot_variance_bottom.remove()
+        if 'plot_variance_top' in vars(self):
+            self.plot_variance_top.remove()
 
         # Add the bias and variance to the plots again
         self.plot_bias = self.ax.fill_between(self.x_pred, bias_bottom, bias_top, alpha=0.6, color='red', label=self.bias_label.format(**kwargs))
