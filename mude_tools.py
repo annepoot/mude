@@ -124,6 +124,7 @@ class magicplotter:
     h = 6
     r = h / w
 
+
     # Create the initial plot
     def __init__(self, f_data, f_truth, f_pred, x_pred = None, x_truth = None, **settings):
 
@@ -157,6 +158,7 @@ class magicplotter:
         self.truth_label = settings.get('truth_label', r'Ground truth $f(x)$')
         self.pred_label = settings.get('pred_label', r'Prediction $y(x)$, $k={k}$')
         self.val_label = settings.get('val_label', r'Validation data $(x,t)$')
+        self.probe_label = settings.get('probe_label', r'Probe')
         self.hide_legend = settings.get('hide_legend', False)
 
         # Get the given axes from the settings, or create a new figure
@@ -171,13 +173,16 @@ class magicplotter:
         self.plot_data, = self.ax.plot(self.x_train, self.y_train, 'x', label=self.data_label.format(**kwargs))
         self.plot_pred, = self.ax.plot(self.x_pred, self.y_pred, '-', label=self.pred_label.format(**kwargs))
 
-        # Initialize the validation set and sidebar (to ensure they exist)
+        # Initialize the validation set, probe, probe set and sidebar (to ensure they exist)
         self.plot_val = None
+        self.plot_probe = None
+        self.plot_neighbors = None
         self.ax_mse = None
 
         # Call the show function
         # This also redirects to the update_data function
         self.show()
+
 
     def update_data(self, event):
 
@@ -239,6 +244,7 @@ class magicplotter:
         # After updating the data, the prediction should be updated as well
         self.update_pred(event)
 
+
     def update_pred(self, event):
 
         # Go through all sliders in the dictionary, and store their values in a kwargs dict
@@ -296,6 +302,59 @@ class magicplotter:
         # Allow for automatic updating of the plot
         self.fig.canvas.draw_idle()
 
+        # After updating the data, the probe should be updated as well
+        self.update_probe(event)
+
+
+    def update_probe(self, event):
+
+        # Exit the function if no probe exists
+        if self.plot_probe is None:
+            return
+
+        # Go through all sliders in the dictionary, and store their values in a kwargs dict
+        kwargs = self.collect_kwargs()
+
+        # Compute the x-coordinate of the probe
+        self.x_probe = min(self.x_train) + self.sliders['probe'].val * (max(self.x_train) - min(self.x_train))
+
+        # Get the KNN regressor
+        neigh = self.f_pred(self.x_train, self.y_train, self.x_pred, return_regressor=True, **kwargs)
+
+        # Get the k nearest neighbors
+        kneighbors = neigh.kneighbors(self.x_probe.reshape(-1, 1), return_distance=False)[0,:]
+
+        # Get the corresponding predictor and target values
+        xneighbors = self.x_train[kneighbors]
+        yneighbors = self.y_train[kneighbors]
+
+        # Update the highlighted data points that correspond to the k nearest neighbors
+        self.plot_neighbors.set_data(xneighbors, yneighbors)
+
+        # Get the interval data
+        xmin = min(xneighbors)
+        xmax = max(xneighbors)
+        y = self.y_probe
+        d = 0.1
+
+        # Display an interval if more than 1 neighbor is used
+        if len(kneighbors) > 1:
+            markers_on = np.array([4])
+            xinterval = np.array([xmin, xmin, xmin, xmin, self.x_probe, xmax, xmax, xmax, xmax])
+            yinterval = np.array([y, y-d, y+d, y, self.y_probe, y, y-d, y+d, y])
+        else:
+            markers_on = np.array([0])
+            xinterval = self.x_probe
+            yinterval = self.y_probe
+
+        # Update the probe and corresponding interval
+        self.plot_probe.set_data(xinterval, yinterval)
+        self.plot_probe.set_markevery(markers_on)
+
+        # Allow for automatic updating of the plot
+        self.fig.canvas.draw_idle()
+
+
     # Define the function that will be called when the hide/show truth button is called
     def toggle_truth(self, event):
 
@@ -313,12 +372,14 @@ class magicplotter:
         else:
             self.ax.legend(loc='lower left')
 
+
     # Define a function that changes the seed
     def update_seed(self, event):
 
         self.seed += 1
 
         self.update_data(event)
+
 
     # Define a function that performs a reset
     def reset_all(self, event):
@@ -335,6 +396,7 @@ class magicplotter:
             self.toggle_truth(event)
 
         self.update_data(event)
+
 
     # Add a slider to the bottom or left side of the plot
     def add_slider(self, var, **settings):
@@ -377,6 +439,7 @@ class magicplotter:
         # Adjust the plot to make room for the added slider
         self.adjust_plot()
 
+
     # Add a button to the bottom or left side of the plot
     def add_button(self, var, **settings):
 
@@ -410,6 +473,7 @@ class magicplotter:
         # Adjust the plot to make room for the added slider
         self.adjust_plot()
 
+
     # Add the mse sidebar to the right side of the plot
     def add_sidebar(self):
 
@@ -442,11 +506,27 @@ class magicplotter:
         # Adjust the plot to make room for the added sidebar
         self.adjust_plot()
 
+
     # Add a probe to display the effect region as a function of k
     def add_probe(self):
 
-        # !!! still needs to be implemented
-        pass
+        # Add a slider that controls the probe location
+        if not 'probe' in self.sliders:
+            self.add_slider('probe')
+
+        # Go through all sliders in the dictionary, and store their values in a kwargs dict
+        kwargs = self.collect_kwargs()
+
+        # Compute the x-coordinate of the probe
+        self.x_probe = min(self.x_train) + self.sliders['probe'].val * (max(self.x_train) - min(self.x_train))
+        self.y_probe = max(self.y_train)
+
+        # Add a probe to the plot
+        self.plot_probe, = self.ax.plot(self.x_probe, self.y_probe, '-o', color='C2', label=self.probe_label.format(**kwargs))
+
+        # Highlight the k neighbors that are nearest to the probe
+        self.plot_neighbors, = self.ax.plot(self.x_probe, self.y_probe, 'X', color='C2', alpha=0.5)
+
 
     # A nice wrapper to add multiple sliders at once
     def add_sliders(self, *var_list, **settings):
@@ -454,11 +534,13 @@ class magicplotter:
         for var in var_list:
             self.add_slider(var, **settings)
 
+
     # A nice wrapper to add multiple buttons at once
     def add_buttons(self, *var_list, **settings):
 
         for var in var_list:
             self.add_button(var, **settings)
+
 
     # Adjust the plot to make room for the sliders
     def adjust_plot(self):
@@ -542,6 +624,7 @@ class magicplotter:
                  sidebar_width,
                  height])
 
+
     # Define a function that collects all key word arguments
     def collect_kwargs(self):
 
@@ -576,6 +659,7 @@ class magicplotter:
 
         return kwargs
 
+
     # This function takes a string and returns the corresponding update function
     def get_update_func(self, update):
 
@@ -592,6 +676,7 @@ class magicplotter:
         elif update == 'probe':
             return self.update_probe
 
+
     # Define a show function, so importing matplotlib is not strictly necessary in the notebooks
     def show(self):
 
@@ -600,6 +685,7 @@ class magicplotter:
 
         # Forward to plt.show()
         plt.show()
+
 
 class biasvarianceplotter(magicplotter):
 
@@ -618,6 +704,7 @@ class biasvarianceplotter(magicplotter):
 
     # Add the defaults settings for the sliders from the magicplotter
     defaults.update(magicplotter.defaults)
+
 
     # Create the initial plot
     def __init__(self, f_data, f_truth, f_pred, x_pred = None, x_truth = None, **settings):
@@ -638,6 +725,7 @@ class biasvarianceplotter(magicplotter):
         self.plot_pred.set_data(self.x_pred, self.y_mean_pred)
         self.plot_pred.set_color('C0')
         self.pred_label = r'$\mathbb{{E}}_{{\mathcal{{D}}}}[y(x)](k={k})$'
+
 
     def update_pred(self, event):
 
@@ -699,6 +787,7 @@ class biasvarianceplotter(magicplotter):
 
         # Allow for automatic updating of the plot
         self.fig.canvas.draw_idle()
+
 
     def make_preds(self, x, x_pred, D, **kwargs):
 
