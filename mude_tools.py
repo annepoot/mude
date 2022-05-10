@@ -683,8 +683,12 @@ class magicplotter:
         # Update the plot
         self.update_data(0)
 
-        # Forward to plt.show()
-        plt.show()
+        # Check if no axis has been passed as an input argument
+        if not 'ax' in self.settings:
+
+            # If not, forward to plt.show()
+            # If so, there is likely a plt.show() near the location where ax has been generated
+            plt.show()
 
 
 class biasvarianceplotter(magicplotter):
