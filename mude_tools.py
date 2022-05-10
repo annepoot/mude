@@ -386,6 +386,7 @@ class magicplotter:
         # Load all default/given values
         hovercolor = settings['hovercolor'] if 'hovercolor' in settings else def_settings['hovercolor']
         label = settings['label'] if 'label' in settings else def_settings['label']
+        update = settings['update'] if 'update' in settings else def_settings['update']
 
         # Create the button
         # Note: it is important that the button is not created in exactly the same place as before
@@ -400,13 +401,11 @@ class magicplotter:
         # Add the slider to the dictionary that will store the slider values
         self.buttons[var] = button
 
+        # Get the correct update function
+        update_func = self.get_update_func(update)
+
         # Add an event to the slider
-        if var == 'truth':
-            button.on_clicked(self.toggle_truth)
-        elif var == 'seed':
-            button.on_clicked(self.update_seed)
-        elif var == 'reset':
-            button.on_clicked(self.reset_all)
+        button.on_clicked(update_func)
 
         # Adjust the plot to make room for the added slider
         self.adjust_plot()
