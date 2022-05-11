@@ -181,6 +181,7 @@ class magicplotter:
 
         # Call the show function
         # This also redirects to the update_data function
+        self.shown = False
         self.show()
 
 
@@ -541,7 +542,6 @@ class magicplotter:
         for var in var_list:
             self.add_button(var, **settings)
 
-
     # Adjust the plot to make room for the sliders
     def adjust_plot(self):
 
@@ -559,7 +559,7 @@ class magicplotter:
         ver_sliders = [slider for slider in self.sliders.values() if slider.orientation=='vertical']
 
         # Get all the sizes of the main plot
-        bottom = max(hor_label_space + (hor_slider_space + slider_thick) * len(hor_sliders) + (hor_slider_space + button_thick) * (len(self.buttons) > 0), 0.1)
+        bottom = max(hor_label_space + (hor_slider_space + slider_thick) * len(hor_sliders) + (hor_slider_space + button_thick) * (len(self.buttons) > 0) + (hor_slider_space + button_thick) * (len(self.buttons) > 3), 0.1)
         left = max(ver_label_space + (ver_slider_space + slider_thick) * len(ver_sliders), 0.2)
         top = 0.1
         right = 0.1 + (sidebar_width + ver_slider_space) * (not self.ax_mse is None)
@@ -603,11 +603,17 @@ class magicplotter:
                 i = 1
             elif val == 'reset':
                 i = 2
+            elif val == 'D_small':
+                i = 3
+            elif val == 'D_medium':
+                i = 4
+            elif val == 'D_large':
+                i = 5
 
             # Set the position of the button
             button.ax.set_position(
-                [left + (button_space + button_length) * i,
-                 bottom - hor_label_space - (hor_slider_space + slider_thick) * len(hor_sliders) - button_thick,
+                [left + (button_space + button_length) * (i % n_button),
+                 bottom - hor_label_space - (hor_slider_space + slider_thick) * len(hor_sliders) - (hor_slider_space + button_thick) * (i // 3) - button_thick,
                  button_length,
                  button_thick])
 
@@ -675,6 +681,12 @@ class magicplotter:
             return self.toggle_truth
         elif update == 'probe':
             return self.update_probe
+        elif update == 'datasets_small':
+            return self.update_datasets_small
+        elif update == 'datasets_medium':
+            return self.update_datasets_medium
+        elif update == 'datasets_large':
+            return self.update_datasets_large
 
 
     # Define a show function, so importing matplotlib is not strictly necessary in the notebooks
@@ -683,15 +695,27 @@ class magicplotter:
         # Update the plot
         self.update_data(0)
 
-        # Check if no axis has been passed as an input argument
-        if not 'ax' in self.settings:
+        # Check if show has already been called
+        if 'ax' in self.settings:
+            self.shown = True
+
+        # Check if the plot has already been shown
+        if not self.shown:
 
             # If not, forward to plt.show()
-            # If so, there is likely a plt.show() near the location where ax has been generated
+            # Note that plt.show() should only be called once!
             plt.show()
+
+            # Remember that the plot has now been shown
+            self.shown = True
 
 
 class biasvarianceplotter(magicplotter):
+
+    # Store the sizes of the small, medium and large number of data sets
+    D_small = 15
+    D_medium = 30
+    D_large = 100
 
     # Define the default settings for all sliders
     defaults = {
@@ -703,6 +727,24 @@ class biasvarianceplotter(magicplotter):
             'orientation':'horizontal',
             'label':r'# of datasets ($D$)',
             'update':'pred'
+        },
+        'D_small':{
+            'index':4,
+            'hovercolor':'0.975',
+            'label':'{} datasets'.format(D_small),
+            'update':'datasets_small'
+        },
+        'D_medium':{
+            'index':5,
+            'hovercolor':'0.975',
+            'label':'{} datasets'.format(D_medium),
+            'update':'datasets_medium'
+        },
+        'D_large':{
+            'index':6,
+            'hovercolor':'0.975',
+            'label':'{} datasets'.format(D_large),
+            'update':'datasets_large'
         }
     }
 
@@ -714,9 +756,10 @@ class biasvarianceplotter(magicplotter):
     def __init__(self, f_data, f_truth, f_pred, x_pred = None, x_truth = None, **settings):
 
         # Get additional settings like the original labels
-        self.title = settings.get('title', None)
+        self.title = settings.get('title', r'Bias and variance computed over {D} datasets')
         self.bias_label = settings.get('bias_label', r'Bias')
         self.variance_label = settings.get('variance_label', r'Variance (95% confidence)')
+        self.datasets = settings.get('D', self.D_medium)
 
         # Perform the initialization of the magicplotter stuff first
         # This also redirects to the update_pred function
@@ -735,6 +778,9 @@ class biasvarianceplotter(magicplotter):
 
         # Go through all sliders in the dictionary, and store their values in a kwargs dict
         kwargs = self.collect_kwargs()
+
+        # Add the dataset size to the kwargs
+        kwargs['D'] = self.datasets
 
         # Recompute the truth
         self.y_truth = self.f_truth(self.x_truth, **kwargs)
@@ -791,6 +837,27 @@ class biasvarianceplotter(magicplotter):
 
         # Allow for automatic updating of the plot
         self.fig.canvas.draw_idle()
+
+
+    def update_datasets_small(self, event):
+
+        self.datasets = self.D_small
+
+        self.update_pred(event)
+
+
+    def update_datasets_medium(self, event):
+
+        self.datasets = self.D_medium
+
+        self.update_pred(event)
+
+
+    def update_datasets_large(self, event):
+
+        self.datasets = self.D_large
+
+        self.update_pred(event)
 
 
     def make_preds(self, x, x_pred, D, **kwargs):
