@@ -730,7 +730,7 @@ class magicplotter:
 class biasvarianceplotter(magicplotter):
 
     # Store the sizes of the small, medium and large number of data sets
-    D_small = 15
+    D_small = 10
     D_medium = 30
     D_large = 100
 
