@@ -630,6 +630,20 @@ class magicplotter:
                  sidebar_width,
                  height])
 
+        # Set the limits of the main plot x-axis based on the observed data
+        xmax = max(self.x_data)
+        xmin = min(self.x_data)
+        xdif = xmax - xmin
+        self.ax.set_xbound((xmin - 0.1 * xdif, xmax + 0.1 * xdif))
+
+        # Set the limits of the main plot y-axis based on the observed data
+        ymax = max(self.y_data)
+        ymin = min(self.y_data)
+        ydif = ymax - ymin
+        self.ax.set_ybound((ymin - 0.1 * ydif, ymax + 0.1 * ydif))
+
+        # Disable autoscaling, to make sure the limits remain enforced
+        plt.autoscale(False)
 
     # Define a function that collects all key word arguments
     def collect_kwargs(self):
@@ -694,6 +708,9 @@ class magicplotter:
 
         # Update the plot
         self.update_data(0)
+
+        # Adjust the plot
+        self.adjust_plot()
 
         # Check if show has already been called
         if 'ax' in self.settings:
@@ -761,9 +778,13 @@ class biasvarianceplotter(magicplotter):
         self.variance_label = settings.get('variance_label', r'Variance (95% confidence)')
         self.datasets = settings.get('D', self.D_medium)
 
+        # Store the title in the settings (to prevent it from being overwritten if the default is used)
+        settings['title'] = self.title
+
         # Perform the initialization of the magicplotter stuff first
         # This also redirects to the update_pred function
         super().__init__(f_data, f_truth, f_pred, x_pred, x_truth, **settings)
+
 
         # Delete the data from the plot (this is a remnant from magicplotter)
         self.ax.lines.remove(self.plot_data)
