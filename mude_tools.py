@@ -146,6 +146,8 @@ class magicplotter:
         self.f_truth = f_truth
         self.f_pred = f_pred
         self.x_data, self.y_data = self.f_data(**kwargs)
+        # self.x_train = self.x_data if x_train is None else x_train
+        # self.y_train = self.y_data if y_train is None else y_train
         self.x_train, self.y_train = self.x_data, self.y_data
         self.x_pred = self.x_data if x_pred is None else x_pred
         self.y_pred = self.f_pred(self.x_train, self.y_train, self.x_pred, **kwargs)
