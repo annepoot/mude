@@ -126,11 +126,15 @@ class magicplotter:
 
 
     # Create the initial plot
-    def __init__(self, f_data, f_truth, f_pred, x_pred = None, x_truth = None, **settings):
+    def __init__(self, f_data, f_truth, f_pred, x_pred = None, x_data = None, y_data = None,
+                 x_truth = None, **settings):
 
         # Define a seed to make sure all results are reproducible
-        self.seed = 0
-
+        if "seed" in settings:
+            self.seed = settings["seed"]
+        else:        
+            self.seed = 0
+            
         # Create an empty dictionary, which will later store all slider values
         self.sliders = {}
         self.buttons = {}
@@ -140,20 +144,28 @@ class magicplotter:
 
         # Collect all key word arguments
         kwargs = self.collect_kwargs()
-
+        
         # Store all variables that were passed to the init function
         self.f_data = f_data
         self.f_truth = f_truth
         self.f_pred = f_pred
-        self.x_data, self.y_data = self.f_data(**kwargs)
+        
+        if (x_data is None) & (y_data is None):
+            self.x_data, self.y_data = self.f_data(**kwargs)
+            self.keep_data = False
+        else:
+            self.x_data, self.y_data = x_data, y_data
+            self.keep_data = True
+        
         # self.x_train = self.x_data if x_train is None else x_train
         # self.y_train = self.y_data if y_train is None else y_train
+        
         self.x_train, self.y_train = self.x_data, self.y_data
         self.x_pred = self.x_data if x_pred is None else x_pred
         self.y_pred = self.f_pred(self.x_train, self.y_train, self.x_pred, **kwargs)
         self.x_truth = self.x_pred if x_truth is None else x_truth
         self.y_truth = self.f_truth(self.x_truth, **kwargs)
-
+        
         # Get additional settings like the original plot title and labels
         self.title = settings.get('title', None)
         self.data_label = settings.get('data_label', r'Training data $(x,t)$')
@@ -188,12 +200,13 @@ class magicplotter:
 
 
     def update_data(self, event):
-
+        
         # Go through all sliders in the dictionary, and store their values in a kwargs dict
         kwargs = self.collect_kwargs()
 
         # Recompute the data and the truth
-        self.x_data, self.y_data = self.f_data(**kwargs)
+        if not self.keep_data:
+            self.x_data, self.y_data = self.f_data(**kwargs)
         self.y_truth = self.f_truth(self.x_truth, **kwargs)
 
         # Split the data into training and validation
