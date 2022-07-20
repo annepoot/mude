@@ -1,7 +1,7 @@
 # Import necessary packages
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider, Button
+from matplotlib.widgets import Slider, Button, RadioButtons
 from sklearn.utils import shuffle
 
 class magicplotter:
@@ -474,6 +474,40 @@ class magicplotter:
         # Adjust the plot to make room for the added slider
         self.adjust_plot()
 
+    # Add a radiobutton to the plot
+    def add_radiobutton(self, var, **settings):
+
+        # Check if the variable is in defaults
+        def_settings = self.defaults.get(var, {})
+
+        # Load all default/given values
+        activecolor = settings['activecolor'] if 'activecolor' in settings else def_settings['activecolor']
+        labels = settings['labels'] if 'labels' in settings else def_settings['labels']
+        update = settings['update'] if 'update' in settings else def_settings['update']
+        active = settings['active'] if 'active' in settings else def_settings['active']
+
+        # Create the button
+        # Note: it is important that the radiobutton is not created in exactly the same place as before
+        # otherwise, matplotlib will reuse the same axis
+        ax_button = self.fig.add_axes([0.1 * len(self.radio_buttons), 0., 0.1, 0.1])
+        radiobutton = RadioButtons(
+            ax=ax_button,
+            labels=labels,
+            active=active,
+            activecolor=activecolor
+        )
+
+        # Add the radiobutton to the dictionary that will store the radiobutton values
+        self.radio_buttons[var] = radiobutton
+
+        # Get the correct update function
+        update_func = self.get_update_func(update)
+
+        # Add an event to the radiobutton
+        radiobutton.on_clicked(update_func)
+
+        # Adjust the plot to make room for the added radiobutton
+        self.adjust_plot()
 
     # Add the mse sidebar to the right side of the plot
     def add_sidebar(self):
@@ -507,7 +541,6 @@ class magicplotter:
         # Adjust the plot to make room for the added sidebar
         self.adjust_plot()
 
-
     # Add a probe to display the effect region as a function of k
     def add_probe(self):
 
@@ -528,7 +561,6 @@ class magicplotter:
         # Highlight the k neighbors that are nearest to the probe
         self.plot_neighbors, = self.ax.plot(self.x_probe, self.y_probe, 'X', color='C2', alpha=0.5)
 
-
     # A nice wrapper to add multiple sliders at once
     def add_sliders(self, *var_list, **settings):
 
@@ -542,10 +574,16 @@ class magicplotter:
         for var in var_list:
             self.add_button(var, **settings)
 
+    # A nice wrapper to add multiple radio_buttons at once
+    def add_radiobuttons(self, *var_list, **settings):
+
+        for var in var_list:
+            self.add_radiobutton(var, **settings)
+
     # Adjust the plot to make room for the sliders
     def adjust_plot(self):
 
-        r = self.r
+        F = self.r
         slider_thick = 0.03
         hor_slider_space = 0.02
         ver_slider_space = 0.07
@@ -927,3 +965,772 @@ class biasvarianceplotter(magicplotter):
         for y_pred in y_pred_list:
             self.variance += (y_pred-self.y_mean_pred)**2
         self.variance /= D
+
+
+class neuralnetplotter(magicplotter):
+    # Define the default settings for all sliders
+    # Use ones in parent class, and overwrite them in notebook.
+    defaults = {
+        'epsilon': {
+            'valmin': 0,
+            'valmax': 1,
+            'valinit': 0.4,
+            'valfmt': None,
+            'orientation': 'horizontal',
+            'label': r'Noise ($\varepsilon$)',
+            'update': 'passive',
+            'position': 'Left'
+        },
+        'k': {
+            'valmin': 1,
+            'valmax': 100,
+            'valinit': 1,
+            'valfmt': '%0.0f',
+            'orientation': 'horizontal',
+            'label': r'Neighbors ($k$)',
+            'update': 'passive',
+            'position': 'Left'
+        },
+        'N': {
+            'valmin': 1,
+            'valmax': 200,
+            'valinit': 35,
+            'valfmt': '%0.0f',
+            'orientation': 'horizontal',
+            'label': r'Training size ($N$)',
+            'update': 'passive',
+            'position': 'Left'
+        },
+        'freq': {
+            'valmin': 1 / 8,
+            'valmax': 5,
+            'valinit': 1.5,
+            'valfmt': None,
+            'orientation': 'horizontal',
+            'label': r'Frequency ($freq$)',
+            'update': 'passive',
+            'position': 'Left'
+        },
+        'neurons': {
+            'valmin': 1,
+            'valmax': 35,
+            'valinit': 20,
+            'valfmt': '%0.0f',
+            'orientation': 'horizontal',
+            'label': r'Neurons / layer',
+            'update': 'change_neurons',
+            'position': 'Left'
+        },
+        'epochs': {
+            'valmin': 1000,
+            'valmax': 10000,
+            'valinit': 7000,
+            'valfmt': '%0.0f',
+            'orientation': 'horizontal',
+            'label': r'Training epochs',
+            'update': 'passive',
+            'position': 'Left',
+            'valstep': np.arange(1000, 10050, 50)
+        },
+        'cur_model': {
+            'valmin': 1,
+            'valmax': 200,
+            'valinit': 200,
+            'valfmt': '%0.0f',
+            'orientation': 'horizontal',
+            'label': 'Selected model',
+            'update': 'change model',
+            'position': 'Right',
+            # 'valstep': np.concatenate([[1], np.arange(10, 810, 10)])
+        },
+        'batch_size': {
+            'valmin': 1,
+            'valmax': 100,
+            'valinit': 5,
+            'valfmt': '%0.0f',
+            'orientation': 'horizontal',
+            'label': r'Samples per batch',
+            'update': 'passive',
+            'position': 'Left'
+        },
+        'val_pct': {
+            'valmin': 0,
+            'valmax': 60,
+            'valinit': 50,
+            'valfmt': None,
+            'orientation': 'horizontal',
+            'label': r'Validation size ($\%$)',
+            'update': 'passive',
+            'position': 'Left'
+        },
+        'truth': {
+            'index': 1,
+            'hovercolor': '0.975',
+            'label': 'Hide truth',
+            'update': 'truth'
+        },
+        'seed': {
+            'index': 2,
+            'hovercolor': '0.975',
+            'label': 'New seed',
+            'update': 'passive'
+        },
+        'reset': {
+            'index': 3,
+            'hovercolor': '0.975',
+            'label': 'Reset',
+            'update': 'passive'
+        },
+        'rerun': {
+            'index': 3,
+            'hovercolor': '0.975',
+            'label': 'Run',
+            'update': 'train'
+        },
+        'activation': {
+            'index': 4,
+            'active': 2,
+            'activecolor': 'black',
+            'valinit': 'relu',
+            'labels': ['identity', 'relu', 'tanh'],
+            'update': 'update_activation'
+        },
+    }
+
+    w = 8
+    h = 6
+    r = h / w
+
+    # Create the initial plot
+    def __init__(self, f_data, f_truth, f_create, f_train, f_pred, x_pred=None, x_truth=None, network=None, **settings):
+
+        # Define a seed to make sure all results are reproducible
+        self.seed = 0
+
+        # Create an empty dictionary, which will later store all slider values
+        self.sliders = {}
+        self.sliders_right = {}
+        self.buttons = {}
+        self.radio_buttons = {}
+        # self.trained_models = []
+
+        # Store the additional settings
+        self.settings = settings
+
+        # Collect all key word arguments
+        kwargs = self.collect_kwargs()
+
+        # Store all variables that were passed to the init function
+        self.f_data = f_data
+        self.f_truth = f_truth
+        self.f_create = f_create
+        self.f_train = f_train
+        self.f_pred = f_pred
+        self.x_data, self.y_data = self.f_data(**kwargs)
+        self.x_train, self.y_train = self.x_data, self.y_data
+        self.x_pred = self.x_data if x_pred is None else x_pred
+        # self.y_pred = self.f_pred(self.x_train, self.y_train, self.x_pred, **kwargs)
+        self.x_truth = self.x_pred if x_truth is None else x_truth
+        self.y_truth = self.f_truth(self.x_truth, **kwargs)
+
+        # Data for truth function
+        self.x_dense = np.linspace(0, 2 * np.pi, 1500)
+        self.y_dense = f_truth(self.x_dense, **kwargs) + np.random.normal(0, kwargs['epsilon'], len(self.x_dense))
+
+        # Get additional settings like the original plot title and labels
+        self.title = settings.get('title', None)
+        self.data_label = settings.get('data_label', r'Training data $(x,t)$')
+        self.truth_label = settings.get('truth_label', r'Ground truth $f(x)$')
+        self.pred_label = settings.get('pred_label', r'Prediction $y(x)$, $k={k}$')
+        self.val_label = settings.get('val_label', r'Validation data $(x,t)$')
+        self.probe_label = settings.get('probe_label', r'Probe')
+        self.hide_legend = settings.get('hide_legend', False)
+
+        # self.vline_label = settings.get('vline_label', 'Selected model')
+        self.train_loss_label = settings.get('tr_label', 'Training error')
+        self.val_loss_label = settings.get('val_label', 'Validation error')
+        self.true_loss_label = settings.get('true_label', 'True error')
+
+        self.fig = plt.figure(figsize=(self.w, self.h))
+        self.ax = self.fig.add_subplot(121)
+        self.ax2 = self.fig.add_subplot(122)
+        self.ax2.set_xlim(0, 1000)
+        self.ax2.set_ylim(0, 4)
+        self.ax.set_xlabel('x')
+        self.ax.set_ylabel('t')
+        self.ax2.set_xlabel('Epochs')
+        self.ax2.set_ylabel('RMSE')
+
+        # Add the truth, data and prediction
+        self.plot_truth, = self.ax.plot(self.x_truth, self.y_truth, 'k-', label=self.truth_label.format(**kwargs))
+        self.plot_data, = self.ax.plot(self.x_train, self.y_train, 'x', label=self.data_label.format(**kwargs))
+        self.plot_pred, = self.ax.plot([], [], '-', label=self.pred_label.format(**kwargs))
+        self.plot_tr_loss, = self.ax2.plot([], [], '-', label=self.train_loss_label.format(**kwargs))
+        self.plot_true_loss, = self.ax2.plot([], [], 'k-', label=self.true_loss_label.format(**kwargs))
+        self.plot_val_loss, = self.ax2.plot([], [], '-', color='purple', label=self.val_loss_label.format(**kwargs))
+
+        self.plot_cur_epoch = self.ax2.axvline(800, 0, 1, linestyle='--', color='green')
+
+        # Initialize the validation set, probe, probe set and sidebar (to ensure they exist)
+        self.plot_val = None
+        self.plot_probe = None
+        self.plot_neighbors = None
+
+        # Draw image of the neural network
+        self.network_ax = self.fig.add_axes([0.72, 0.11, 0.27, 0.27], anchor='SW', zorder=0)
+        draw_neural_net(self.network_ax, .1, .9, .1, .9, [1, kwargs['neurons'], kwargs['neurons'], 1])
+        self.network_ax.axis('off')
+
+        # Draw image of the activation function
+        self.activation_ax = self.fig.add_axes([0.85, 0.02, 0.10, 0.10], anchor='SW', zorder=1)
+        self.activation_ax.set_xlim(-4, 4)
+        self.activation_ax.set_ylim(-2, 2)
+        self.plot_act, = self.activation_ax.plot([], [])
+        self.activation_ax.axis('off')
+        self.plot_activation()
+
+        # Call the show function
+        # This also redirects to the update_data function
+        self.shown = False
+        self.show()
+
+    # When a slider is changed, don't do anything except changing the 'Run' button appearance
+    def passive(self, event):
+        self.buttons['rerun'].color = 'red'
+        self.buttons['rerun'].label.set_text('Re-run')
+        self.buttons['rerun'].hovercolor = 'green'
+
+    # Function to change the image & buttons when the number of neurons in the model changes
+    def change_neurons(self, event):
+        kwargs = self.collect_kwargs()
+
+        # Update network image
+        self.network_ax.cla()  # delete previous image
+        self.network_ax.axis('off')
+        draw_neural_net(self.network_ax, .1, .9, .1, .9, [1, kwargs['neurons'], kwargs['neurons'], 1])
+        self.fig.canvas.draw()
+
+        # Do standard slider updating
+        self.passive(event)
+
+    # Function that plots the activation function
+    def plot_activation(self):
+        x_act = np.linspace(-4, 4, 100)
+        kwargs = self.collect_kwargs()
+        activation = kwargs['activation']
+
+        if activation == 'identity':
+            y_act = x_act
+        elif activation == 'relu':
+            y_act = [max(0, xi) for xi in x_act]
+        elif activation == 'tanh':
+            y_act = np.tanh(x_act)
+
+        self.plot_act.set_data(x_act, y_act)
+        self.fig.canvas.draw()
+
+    # A function that changes the appearances when changing the activation
+    def update_activation(self, event):
+        self.plot_activation()
+        self.passive(event)
+
+    # Function that loads a previously computed model
+    def change_model(self, event):
+        kwargs = self.collect_kwargs()
+        epochs = kwargs['epochs']  # 1- epochs
+        cur_epoch = int(kwargs['cur_model'] / 200 * epochs)
+
+        # Change vertical line in loss plot (can't adjust x-position only; so re-draw with extreme bounds)
+        self.plot_cur_epoch.set_data([[cur_epoch, cur_epoch], [-1, 9e9]])
+
+        if len(self.trained_models) != 0:
+            y_pred = self.trained_models[kwargs['cur_model']]
+            self.plot_pred.set_data(self.x_pred, y_pred)
+
+        # Allow for automatic updating of the plot
+        self.fig.canvas.draw_idle()
+
+    def trainloop(self, batches, **kwargs):
+        mse_validation_ar = []
+        self.mse_true_ar = []
+        self.rmse_true_ar = []
+
+        # Loop over epoch nums. A batch here contains multiple epochs
+        for i in range(batches):
+            # Train for a fixed number of epochs
+            self.network, mse_train_ar = self.f_train(self.network, self.x_train, self.y_train, **kwargs)
+
+            rmse_train_ar = np.sqrt(np.array(mse_train_ar) * 2)     # Automatically computes (1/(2N) SUM ||..||2 ), so multiply by 2 first
+
+            y_pred = self.f_pred(self.network, self.x_pred)
+            self.plot_pred.set_data(self.x_pred, y_pred)
+
+            # Compute the validation error
+            if self.x_val is not None:
+                val_pred = self.f_pred(self.network, self.x_val)
+
+                mse_validation_ar.append(sum((val_pred - self.y_val) ** 2) / len(self.x_val))
+                rmse_validation_ar = np.sqrt(np.array(mse_validation_ar))
+
+                self.plot_val_loss.set_data(np.arange(len(rmse_validation_ar)) * self.epochs_per_batch, rmse_validation_ar)
+
+                # Compute boundary of the plot
+                upper_bound = max(min(rmse_train_ar) * 2, min(rmse_validation_ar) * 1.5, sum(rmse_validation_ar[-5:]) / 5 * 1.2, sum(self.rmse_true_ar[-5:]) / 5 * 1.2)
+            else:
+                upper_bound = max(min(rmse_train_ar) * 2, sum(self.rmse_true_ar[-5:]) / 5 * 1.2)
+
+            self.rmse_true_ar.append(np.sqrt(self.dense_sampling_error()))
+
+            self.ax2.set_ybound((0, upper_bound))
+
+            self.plot_tr_loss.set_data(np.arange(len(rmse_train_ar)), rmse_train_ar)
+            self.plot_true_loss.set_data(np.arange(len(self.rmse_true_ar)) * self.epochs_per_batch, self.rmse_true_ar)
+            self.fig.canvas.draw()
+
+            # Store prediction to select back after training
+            self.trained_models.append(y_pred)
+
+    # The train function
+    def train(self, event):
+        kwargs = self.collect_kwargs()
+
+        # Update the legend
+        self.plot_pred.set_label(self.pred_label.format(**kwargs))
+
+        self.plot_val_loss.set_data([], []) # Empty validation loss, to reset it in case of %=0.
+
+        # Update the title
+        if self.title is None:
+            self.ax.set_title(None)
+        else:
+            self.ax.set_title(self.title.format(**kwargs))
+
+        self.trained_models = []
+
+        # Change colors of the Rerun button while training
+        self.buttons['rerun'].color = 'green'
+        self.buttons['rerun'].label.set_text('Running')
+        self.buttons['rerun'].hovercolor = 'green'
+
+        # Create initial network
+        self.network = self.f_create(**kwargs)
+
+        epochs = kwargs['epochs']
+        # A batch here is not the number of samples per gradient step, but multiple epochs with a single validation update
+        batches = 200   #  Matches number of 'selected models'
+        self.epochs_per_batch = int(round(epochs / batches, 0)) # This can give a mismatch between shown and selected model
+        kwargs['epochs_per_batch'] = self.epochs_per_batch
+
+        # Set limit of loss function plot
+        self.ax2.set_xbound((0, epochs))
+        # Set 'selected model' to end
+        self.sliders_right['cur_model'].set_val(batches)
+
+        # Data
+        self.update_data(0)
+
+        # Update legend
+        if self.hide_legend:
+            self.ax.legend = None
+            self.ax2.legend = None
+        else:
+            self.ax.legend(loc='lower left')
+            self.ax2.legend(loc='lower left', bbox_to_anchor=(0.0, 0.8))
+
+        self.trainloop(batches, **kwargs)
+
+        # Change colors of the Rerun button back
+        self.buttons['rerun'].color = 'gray'
+        self.buttons['rerun'].label.set_text('Finished')
+        self.buttons['rerun'].hovercolor = 'gray'
+
+        self.fig.canvas.draw_idle()
+
+    # Approximate the 'true error' with a dense sampling of the space & network predictions
+    def dense_sampling_error(self):
+        return sum((self.y_dense - self.f_pred(self.network, self.x_dense)) ** 2) / len(self.x_dense)
+
+    # Add a slider below the plot; with minimal spacing
+    def add_slider(self, var, **settings):
+
+        # Check if the variable is in defaults
+        def_settings = self.defaults.get(var, {})
+
+        # Load all default/given values*
+        valmin = settings['valmin'] if 'valmin' in settings else def_settings['valmin']
+        valmax = settings['valmax'] if 'valmax' in settings else def_settings['valmax']
+        valinit = settings['valinit'] if 'valinit' in settings else def_settings['valinit']
+        valfmt = settings['valfmt'] if 'valfmt' in settings else def_settings['valfmt']
+        orientation = settings['orientation'] if 'orientation' in settings else def_settings['orientation']
+        label = settings['label'] if 'label' in settings else def_settings['label']
+        update = settings['update'] if 'update' in settings else def_settings['update']
+        position = settings['position'] if 'position' in settings else def_settings['position']
+        if 'valstep' in settings:
+            valstep = settings['valstep']
+        elif 'valstep' in def_settings:
+            valstep = def_settings['valstep']
+        else:
+            valstep = None
+
+        # Create the slider
+        # Note: it is important that the slider is not created in exactly the same place as before
+        # otherwise, matplotlib will reuse the same axis
+        ax_slider = self.fig.add_axes([0.8 + 0.1 * (len(self.sliders) + len(self.sliders_right)), 0.5, 0.1, 0.1])
+        slider = Slider(
+            ax=ax_slider,
+            label=label,
+            valmin=valmin,
+            valmax=valmax,
+            valinit=valinit,
+            valfmt=valfmt,
+            valstep=valstep,
+            orientation=orientation,
+        )
+
+        # Add the slider to the dictionary that will store the slider values
+        if position == 'Left':
+            self.sliders[var] = slider
+        elif position == 'Right':
+            self.sliders_right[var] = slider
+
+        # Get the correct update function
+        update_func = self.get_update_func(update)
+
+        # Add an event to the slider
+        slider.on_changed(update_func)
+
+        # Adjust the plot to make room for the added slider
+        self.adjust_plot()
+
+    # This function takes a string and returns the corresponding update function
+    def get_update_func(self, update):
+        if update == 'passive':
+            return self.passive
+        if update == 'update_activation':
+            return self.update_activation
+        if update == 'change model':
+            return self.change_model
+        elif update == 'train':
+            return self.train
+        elif update == 'change_neurons':
+            return self.change_neurons
+        elif update == 'seed':
+            return self.update_seed
+        elif update == 'reset':
+            return self.reset_all
+        elif update == 'truth':
+            return self.toggle_truth
+        elif update == 'probe':
+            return self.update_probe
+
+    # Adjust the plot to make room for the sliders
+    def adjust_plot(self):
+
+        slider_thick = 0.03
+        hor_slider_space = 0.02
+        start_slider_shift = 0.12
+        hor_label_space = 0.10
+        hor_label_space_end = 0.09
+        button_thick = 0.04
+        button_length = 0.1
+        sideplot_fraction = 0.25  # 0.5 = equal: [(1-x), x] * w
+        hor_plot_space = 0.1
+
+        hor_sliders = [slider for slider in self.sliders.values() if slider.orientation == 'horizontal']
+        hor_sliders_right = [slider for slider in self.sliders_right.values() if slider.orientation == 'horizontal']
+        ver_sliders = [slider for slider in self.sliders.values() if slider.orientation == 'vertical']
+
+        # Get all the sizes of the main plot
+        bottom = max(hor_label_space + (hor_slider_space + slider_thick) * len(hor_sliders) + (
+                    hor_slider_space + button_thick) * (len(self.buttons) > 0) + (hor_slider_space + button_thick) * (
+                                 len(self.buttons) > 3), 0.1)
+        left = 0.04
+        top = 0.1
+        right_space = 0.05
+        height = 1 - top - bottom
+        totwidth = 1 - right_space - left - hor_plot_space
+        mainplot_width = totwidth * (1 - sideplot_fraction)
+        sideplot_width = totwidth * sideplot_fraction
+
+        # Set the size of the main plot
+        self.ax.set_position([left, bottom, mainplot_width, height])
+
+        # Set the position of the sideplot if it exists
+        if not self.ax2 is None:
+            # Change the size of the main figure
+            self.fig.set_figwidth(self.w + hor_plot_space + sideplot_width + 1.0)
+
+            # Set the position of the sideplot
+            self.ax2.set_position(
+                # [1 - right + ver_slider_space,
+                [1 - right_space - sideplot_width,
+                 bottom,
+                 sideplot_width,
+                 height])
+
+        # Set the position of the horizontal sliders one by one
+        for i, slider in enumerate(hor_sliders):
+            slider.ax.set_position(
+                [left + start_slider_shift,
+                 bottom - hor_label_space - slider_thick - (hor_slider_space + slider_thick) * i,
+                 mainplot_width - start_slider_shift - hor_label_space_end,
+                 slider_thick])
+        # Set the position of the horizontal sliders on the right
+        for i, slider in enumerate(hor_sliders_right):
+            slider.ax.set_position(
+                [1 - right_space - sideplot_width,
+                 bottom - hor_label_space - slider_thick - (hor_slider_space + slider_thick) * i,
+                 sideplot_width,
+                 slider_thick])
+
+        # Calculate the spacing needed for 3 buttons
+        n_button = 3
+        button_space = (mainplot_width - n_button * button_length) / (n_button - 1)
+
+        # Set the position of the buttons one by one
+        for val, button in self.buttons.items():
+
+            # Find the left side of the button
+            if val == 'truth':
+                i = 1
+            elif val == 'seed':
+                i = 2
+            elif val == 'rerun':
+                i = 0
+            # Set the position of the button
+            button.ax.set_position(
+                [left + (button_space + button_length) * (i % n_button),
+                 bottom - hor_label_space - (hor_slider_space + slider_thick) * len(hor_sliders) - (
+                             hor_slider_space + button_thick) * (i // 3) - button_thick,
+                 button_length,
+                 button_thick])
+
+        # Set the position of the radiobuttons one by one
+        tot_height = 0
+        for val, radiobutton in self.radio_buttons.items():
+            # Get automatic size of button
+            ll, bb, ww, hh = radiobutton.ax.get_position().bounds
+            posy = bottom - hor_label_space - (hor_slider_space + slider_thick) * len(
+                hor_sliders) - button_thick + tot_height  # Adjust starting height height
+
+            if val == 'activation':
+                i = 0
+
+            radiobutton.ax.set_position(
+                # [1 - right + ver_slider_space,  # posx
+                [1 - right_space - sideplot_width + (button_space + button_length) * (i % n_button),  # posx
+                 posy,  # posy
+                 ww,  # width
+                 hh])  # height
+            tot_height += hh
+
+        # Set the limits of the main plot x-axis based on the observed data
+        xmax = max(self.x_data)
+        xmin = min(self.x_data)
+        xdif = xmax - xmin
+        self.ax.set_xbound((xmin - 0.1 * xdif, xmax + 0.1 * xdif))
+
+        # Set the limits of the main plot y-axis based on the observed data
+        ymax = max(self.y_data)
+        ymin = min(self.y_data)
+        ydif = ymax - ymin
+        self.ax.set_ybound((ymin - 0.1 * ydif, ymax + 0.1 * ydif))
+
+        # Disable autoscaling, to make sure the limits remain enforced
+        plt.autoscale(False)
+
+    # Define a function that collects all key word arguments
+    def collect_kwargs(self):
+
+        # Initialize an empty dictionary
+        kwargs = {}
+
+        # First, go through all sliders in the default settings and store their initial values
+        for val, val_dict in self.defaults.items():
+
+            # Check if the slider has a initial value
+            if 'valinit' in val_dict:
+                # If so, store it in the kwargs
+                kwargs[val] = val_dict['valinit']
+
+        # Then, go through all custom settings, and store their values
+        for val, setting in self.settings.items():
+            kwargs[val] = setting
+
+        # Go through all current sliders, and store their current values
+        for val, slider in self.sliders.items():
+
+            # Check if the slider should return an integer
+            if slider.valfmt == '%0.0f':
+                kwargs[val] = round(slider.val)
+            else:
+                kwargs[val] = slider.val
+
+        # Go through all current sliders, and store their current values
+        for val, slider in self.sliders_right.items():
+
+            # Check if the slider should return an integer
+            if slider.valfmt == '%0.0f':
+                kwargs[val] = round(slider.val)
+            else:
+                kwargs[val] = slider.val
+
+        # Repeat for radio_buttons:
+        for val, radiobutton in self.radio_buttons.items():
+            kwargs[val] = radiobutton.value_selected
+
+        # Add the current seed to the dictionary
+        kwargs['seed'] = self.seed
+
+        return kwargs
+
+        # Define the function that will be called when the hide/show truth button is called
+
+    def toggle_truth(self, event):
+        kwargs = self.collect_kwargs()
+        if self.plot_truth is None:
+            self.plot_truth, = self.ax.plot(self.x_truth, self.y_truth, 'k-', label=self.truth_label.format(**kwargs))
+            self.plot_true_loss, = self.ax2.plot(np.arange(len(self.rmse_true_ar)) * self.epochs_per_batch,
+                                                 self.rmse_true_ar, 'k-', label=self.true_loss_label.format(**kwargs))
+
+            self.buttons['truth'].label.set_text('Hide truth')
+        else:
+            self.ax.lines.remove(self.plot_truth)
+            self.ax2.lines.remove(self.plot_true_loss)
+            self.plot_truth = None
+            self.buttons['truth'].label.set_text('Show truth')
+
+        # Update the legend
+        if self.hide_legend:
+            self.ax.legend = None
+        else:
+            self.ax.legend(loc='lower left')
+            # self.ax2.legend(loc='upper right')
+            self.ax2.legend(loc='lower left', bbox_to_anchor=(0.0, 0.8))
+
+    def update_data(self, event):
+
+        # Go through all sliders in the dictionary, and store their values in a kwargs dict
+        kwargs = self.collect_kwargs()
+
+        # Recompute the data and the truth
+        self.x_data, self.y_data = self.f_data(**kwargs)
+        self.y_truth = self.f_truth(self.x_truth, **kwargs)
+
+        # Recompute dense
+        self.y_dense = self.f_truth(self.x_dense, **kwargs) + np.random.normal(0, kwargs['epsilon'], len(self.x_dense))
+
+        # Split the data into training and validation
+        if int(kwargs['val_pct']) == 0:
+            # Use everything for training if the validation percentage is 0
+            self.x_train = self.x_data
+            self.y_train = self.y_data
+            self.x_val = None
+            self.y_val = None
+
+        else:
+            # Otherwise, split the training and validation data
+            x_shuffle, y_shuffle = shuffle(self.x_data, self.y_data)
+            N_split = int(kwargs['N'] * (1 - kwargs['val_pct'] / 100))
+            self.x_train = x_shuffle[:N_split]
+            self.y_train = y_shuffle[:N_split]
+            self.x_val = x_shuffle[N_split:]
+            self.y_val = y_shuffle[N_split:]
+
+        # Update the data and ground truth in the plots
+        self.plot_data.set_data(self.x_train, self.y_train)
+
+        if not self.plot_truth is None:
+            self.plot_truth.set_data(self.x_truth, self.y_truth)
+
+        # Update the validation data set if necessary
+        if self.x_val is None:
+            if not self.plot_val is None:
+                self.ax.lines.remove(self.plot_val)
+                self.plot_val = None
+        else:
+            if self.plot_val is None:
+                self.plot_val, = self.ax.plot(self.x_val, self.y_val, 'x', color='purple',
+                                              label=self.val_label.format(**kwargs))
+            else:
+                self.plot_val.set_data(self.x_val, self.y_val)
+
+        # Update the legend of the data and ground truth
+        self.plot_data.set_label(self.data_label.format(**kwargs))
+
+        if not self.plot_truth is None:
+            self.plot_truth.set_label(self.truth_label.format(**kwargs))
+
+        if not self.plot_val is None:
+            self.plot_val.set_label(self.val_label.format(**kwargs))
+
+        # Allow for automatic updating of the plot
+        self.fig.canvas.draw_idle()
+
+    # Define a show function, so importing matplotlib is not strictly necessary in the notebooks
+    # Shows plot without updating data
+    def show(self):
+
+        # Update the plot
+        self.update_data(0)
+
+        # Adjust the plot
+        self.adjust_plot()
+
+        # Check if show has already been called
+        if 'ax' in self.settings:
+            self.shown = True
+
+        # Check if the plot has already been shown
+        if not self.shown:
+            # If not, forward to plt.show()
+            # Note that plt.show() should only be called once!
+            plt.show()
+
+            # Remember that the plot has now been shown
+            self.shown = True
+
+
+def draw_neural_net(ax, left, right, bottom, top, layer_sizes):
+    '''
+    Draw a neural network cartoon using matplotilb.
+
+    :usage:
+        # >>> fig = plt.figure(figsize=(12, 12))
+        # >>> draw_neural_net(fig.gca(), .1, .9, .1, .9, [4, 7, 2])
+
+    :parameters:
+        - ax : matplotlib.axes.AxesSubplot
+            The axes on which to plot the cartoon (get e.g. by plt.gca())
+        - left : float
+            The center of the leftmost node(s) will be placed here
+        - right : float
+            The center of the rightmost node(s) will be placed here
+        - bottom : float
+            The center of the bottommost node(s) will be placed here
+        - top : float
+            The center of the topmost node(s) will be placed here
+        - layer_sizes : list of int
+            List of layer sizes, including input and output dimensionality
+    '''
+    n_layers = len(layer_sizes)
+    v_spacing = (top - bottom)/float(max(layer_sizes))
+    h_spacing = (right - left)/float(len(layer_sizes) - 1)
+    # Nodes
+    for n, layer_size in enumerate(layer_sizes):
+        layer_top = v_spacing*(layer_size - 1)/2. + (top + bottom)/2.
+        for m in range(layer_size):
+            circle = plt.Circle((n*h_spacing + left, layer_top - m*v_spacing), v_spacing/4.,
+                                color='green', ec='k', zorder=4)
+            ax.add_artist(circle)
+    # Edges
+    for n, (layer_size_a, layer_size_b) in enumerate(zip(layer_sizes[:-1], layer_sizes[1:])):
+        layer_top_a = v_spacing*(layer_size_a - 1)/2. + (top + bottom)/2.
+        layer_top_b = v_spacing*(layer_size_b - 1)/2. + (top + bottom)/2.
+        for m in range(layer_size_a):
+            for o in range(layer_size_b):
+                line = plt.Line2D([n*h_spacing + left, (n + 1)*h_spacing + left],
+                                  [layer_top_a - m*v_spacing, layer_top_b - o*v_spacing], c='k')
+                ax.add_artist(line)
+
+
