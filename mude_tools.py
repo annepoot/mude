@@ -994,7 +994,7 @@ class neuralnetplotter(magicplotter):
         'N': {
             'valmin': 1,
             'valmax': 200,
-            'valinit': 35,
+            'valinit': 30,
             'valfmt': '%0.0f',
             'orientation': 'horizontal',
             'label': r'Training size ($N$)',
@@ -1004,7 +1004,7 @@ class neuralnetplotter(magicplotter):
         'freq': {
             'valmin': 1 / 8,
             'valmax': 5,
-            'valinit': 1.5,
+            'valinit': 3.4,
             'valfmt': None,
             'orientation': 'horizontal',
             'label': r'Frequency ($freq$)',
@@ -1024,7 +1024,7 @@ class neuralnetplotter(magicplotter):
         'epochs': {
             'valmin': 1000,
             'valmax': 10000,
-            'valinit': 7000,
+            'valinit': 10000,
             'valfmt': '%0.0f',
             'orientation': 'horizontal',
             'label': r'Training epochs',
@@ -1040,7 +1040,7 @@ class neuralnetplotter(magicplotter):
             'orientation': 'horizontal',
             'label': 'Selected model',
             'update': 'change model',
-            'position': 'Right',
+            'position': 'Right'
             # 'valstep': np.concatenate([[1], np.arange(10, 810, 10)])
         },
         'batch_size': {
@@ -1056,12 +1056,13 @@ class neuralnetplotter(magicplotter):
         'val_pct': {
             'valmin': 0,
             'valmax': 60,
-            'valinit': 50,
+            'valinit': 30,
             'valfmt': None,
             'orientation': 'horizontal',
             'label': r'Validation size ($\%$)',
             'update': 'passive',
-            'position': 'Left'
+            'position': 'Left',
+            'valstep': np.arange(0, 65, 5)
         },
         'truth': {
             'index': 1,
@@ -1073,7 +1074,7 @@ class neuralnetplotter(magicplotter):
             'index': 2,
             'hovercolor': '0.975',
             'label': 'New seed',
-            'update': 'passive'
+            'update': 'seed'
         },
         'reset': {
             'index': 3,
@@ -1091,7 +1092,7 @@ class neuralnetplotter(magicplotter):
             'index': 4,
             'active': 2,
             'activecolor': 'black',
-            'valinit': 'relu',
+            'valinit': 'tanh',
             'labels': ['identity', 'relu', 'tanh'],
             'update': 'update_activation'
         },
@@ -1101,11 +1102,13 @@ class neuralnetplotter(magicplotter):
     h = 6
     r = h / w
 
+    # defaults.update(magicplotter.defaults)
+
     # Create the initial plot
     def __init__(self, f_data, f_truth, f_create, f_train, f_pred, x_pred=None, x_truth=None, network=None, **settings):
 
         # Define a seed to make sure all results are reproducible
-        self.seed = 0
+        self.seed = 2
 
         # Create an empty dictionary, which will later store all slider values
         self.sliders = {}
@@ -1129,7 +1132,6 @@ class neuralnetplotter(magicplotter):
         self.x_data, self.y_data = self.f_data(**kwargs)
         self.x_train, self.y_train = self.x_data, self.y_data
         self.x_pred = self.x_data if x_pred is None else x_pred
-        # self.y_pred = self.f_pred(self.x_train, self.y_train, self.x_pred, **kwargs)
         self.x_truth = self.x_pred if x_truth is None else x_truth
         self.y_truth = self.f_truth(self.x_truth, **kwargs)
 
@@ -1154,7 +1156,7 @@ class neuralnetplotter(magicplotter):
         self.fig = plt.figure(figsize=(self.w, self.h))
         self.ax = self.fig.add_subplot(121)
         self.ax2 = self.fig.add_subplot(122)
-        self.ax2.set_xlim(0, 1000)
+        self.ax2.set_xlim(0, 10000)
         self.ax2.set_ylim(0, 4)
         self.ax.set_xlabel('x')
         self.ax.set_ylabel('t')
@@ -1169,17 +1171,12 @@ class neuralnetplotter(magicplotter):
         self.plot_true_loss, = self.ax2.plot([], [], 'k-', label=self.true_loss_label.format(**kwargs))
         self.plot_val_loss, = self.ax2.plot([], [], '-', color='purple', label=self.val_loss_label.format(**kwargs))
 
-        self.plot_cur_epoch = self.ax2.axvline(800, 0, 1, linestyle='--', color='green')
+        self.plot_cur_epoch = self.ax2.axvline(kwargs['epochs'], 0, 1, linestyle='--', color='green')
 
         # Initialize the validation set, probe, probe set and sidebar (to ensure they exist)
         self.plot_val = None
         self.plot_probe = None
         self.plot_neighbors = None
-
-        # Draw image of the neural network
-        self.network_ax = self.fig.add_axes([0.72, 0.11, 0.27, 0.27], anchor='SW', zorder=0)
-        draw_neural_net(self.network_ax, .1, .9, .1, .9, [1, kwargs['neurons'], kwargs['neurons'], 1])
-        self.network_ax.axis('off')
 
         # Draw image of the activation function
         self.activation_ax = self.fig.add_axes([0.85, 0.02, 0.10, 0.10], anchor='SW', zorder=1)
@@ -1250,41 +1247,41 @@ class neuralnetplotter(magicplotter):
         # Allow for automatic updating of the plot
         self.fig.canvas.draw_idle()
 
-    def trainloop(self, batches, **kwargs):
+    def trainloop(self, epoch_blocks, **kwargs):
         mse_validation_ar = []
         self.mse_true_ar = []
         self.rmse_true_ar = []
 
-        # Loop over epoch nums. A batch here contains multiple epochs
-        for i in range(batches):
+        # Loop over epoch nums. A block here contains multiple epochs
+        for i in range(epoch_blocks):
             # Train for a fixed number of epochs
             self.network, mse_train_ar = self.f_train(self.network, self.x_train, self.y_train, **kwargs)
 
             rmse_train_ar = np.sqrt(np.array(mse_train_ar) * 2)     # Automatically computes (1/(2N) SUM ||..||2 ), so multiply by 2 first
 
-            y_pred = self.f_pred(self.network, self.x_pred)
+            y_pred = self.f_pred(self.network, self.x_pred, **kwargs)
             self.plot_pred.set_data(self.x_pred, y_pred)
 
             # Compute the validation error
             if self.x_val is not None:
-                val_pred = self.f_pred(self.network, self.x_val)
+                val_pred = self.f_pred(self.network, self.x_val, **kwargs)
 
                 mse_validation_ar.append(sum((val_pred - self.y_val) ** 2) / len(self.x_val))
                 rmse_validation_ar = np.sqrt(np.array(mse_validation_ar))
 
-                self.plot_val_loss.set_data(np.arange(len(rmse_validation_ar)) * self.epochs_per_batch, rmse_validation_ar)
+                self.plot_val_loss.set_data(np.arange(len(rmse_validation_ar)) * self.epochs_per_block, rmse_validation_ar)
 
                 # Compute boundary of the plot
                 upper_bound = max(min(rmse_train_ar) * 2, min(rmse_validation_ar) * 1.5, sum(rmse_validation_ar[-5:]) / 5 * 1.2, sum(self.rmse_true_ar[-5:]) / 5 * 1.2)
             else:
                 upper_bound = max(min(rmse_train_ar) * 2, sum(self.rmse_true_ar[-5:]) / 5 * 1.2)
 
-            self.rmse_true_ar.append(np.sqrt(self.dense_sampling_error()))
+            self.rmse_true_ar.append(np.sqrt(self.dense_sampling_error(**kwargs)))
 
             self.ax2.set_ybound((0, upper_bound))
 
             self.plot_tr_loss.set_data(np.arange(len(rmse_train_ar)), rmse_train_ar)
-            self.plot_true_loss.set_data(np.arange(len(self.rmse_true_ar)) * self.epochs_per_batch, self.rmse_true_ar)
+            self.plot_true_loss.set_data(np.arange(len(self.rmse_true_ar)) * self.epochs_per_block, self.rmse_true_ar)
             self.fig.canvas.draw()
 
             # Store prediction to select back after training
@@ -1316,18 +1313,23 @@ class neuralnetplotter(magicplotter):
         self.network = self.f_create(**kwargs)
 
         epochs = kwargs['epochs']
-        # A batch here is not the number of samples per gradient step, but multiple epochs with a single validation update
-        batches = 200   #  Matches number of 'selected models'
-        self.epochs_per_batch = int(round(epochs / batches, 0)) # This can give a mismatch between shown and selected model
-        kwargs['epochs_per_batch'] = self.epochs_per_batch
+        # A block here is multiple epochs with a single validation update
+        epoch_blocks = 200   #  Matches number of 'selected models'
+        self.epochs_per_block = int(round(epochs / epoch_blocks, 0)) # This can give a mismatch between shown and selected model
+        kwargs['epochs_per_block'] = self.epochs_per_block
 
         # Set limit of loss function plot
         self.ax2.set_xbound((0, epochs))
         # Set 'selected model' to end
-        self.sliders_right['cur_model'].set_val(batches)
+        if 'cur_model' in self.sliders_right:
+            self.sliders_right['cur_model'].set_val(epoch_blocks)
 
         # Data
         self.update_data(0)
+
+        # Add normalization bounds to kwargs based on provided data
+        kwargs['mean'] = np.mean(self.x_data)
+        kwargs['std'] = np.std(self.x_data)
 
         # Update legend
         if self.hide_legend:
@@ -1337,7 +1339,7 @@ class neuralnetplotter(magicplotter):
             self.ax.legend(loc='lower left')
             self.ax2.legend(loc='lower left', bbox_to_anchor=(0.0, 0.8))
 
-        self.trainloop(batches, **kwargs)
+        self.trainloop(epoch_blocks, **kwargs)
 
         # Change colors of the Rerun button back
         self.buttons['rerun'].color = 'gray'
@@ -1347,8 +1349,8 @@ class neuralnetplotter(magicplotter):
         self.fig.canvas.draw_idle()
 
     # Approximate the 'true error' with a dense sampling of the space & network predictions
-    def dense_sampling_error(self):
-        return sum((self.y_dense - self.f_pred(self.network, self.x_dense)) ** 2) / len(self.x_dense)
+    def dense_sampling_error(self, **kwargs):
+        return sum((self.y_dense - self.f_pred(self.network, self.x_dense, **kwargs)) ** 2) / len(self.x_dense)
 
     # Add a slider below the plot; with minimal spacing
     def add_slider(self, var, **settings):
@@ -1399,6 +1401,14 @@ class neuralnetplotter(magicplotter):
         # Add an event to the slider
         slider.on_changed(update_func)
 
+        # If slider is neurons
+        if update == 'change_neurons':
+            # Draw image of the neural network
+            self.network_ax = self.fig.add_axes([0.72, 0.11, 0.27, 0.27], anchor='SW', zorder=0)
+            draw_neural_net(self.network_ax, .1, .9, .1, .9, [1, valinit, valinit, 1])
+            self.network_ax.axis('off')
+            self.fig.canvas.draw()
+
         # Adjust the plot to make room for the added slider
         self.adjust_plot()
 
@@ -1423,6 +1433,11 @@ class neuralnetplotter(magicplotter):
         elif update == 'probe':
             return self.update_probe
 
+    # Define a function that changes the seed
+    def update_seed(self, event):
+        self.seed += 1
+        self.passive(event)
+
     # Adjust the plot to make room for the sliders
     def adjust_plot(self):
 
@@ -1438,10 +1453,12 @@ class neuralnetplotter(magicplotter):
 
         hor_sliders = [slider for slider in self.sliders.values() if slider.orientation == 'horizontal']
         hor_sliders_right = [slider for slider in self.sliders_right.values() if slider.orientation == 'horizontal']
-        ver_sliders = [slider for slider in self.sliders.values() if slider.orientation == 'vertical']
+
+        # Even with few sliders, make space for the NN visualization
+        bottom_space_sliders = (hor_slider_space + slider_thick) * max(len(hor_sliders), 6 )
 
         # Get all the sizes of the main plot
-        bottom = max(hor_label_space + (hor_slider_space + slider_thick) * len(hor_sliders) + (
+        bottom = max(hor_label_space + bottom_space_sliders + (
                     hor_slider_space + button_thick) * (len(self.buttons) > 0) + (hor_slider_space + button_thick) * (
                                  len(self.buttons) > 3), 0.1)
         left = 0.04
@@ -1500,7 +1517,7 @@ class neuralnetplotter(magicplotter):
             # Set the position of the button
             button.ax.set_position(
                 [left + (button_space + button_length) * (i % n_button),
-                 bottom - hor_label_space - (hor_slider_space + slider_thick) * len(hor_sliders) - (
+                 bottom - hor_label_space - bottom_space_sliders - (
                              hor_slider_space + button_thick) * (i // 3) - button_thick,
                  button_length,
                  button_thick])
@@ -1510,8 +1527,7 @@ class neuralnetplotter(magicplotter):
         for val, radiobutton in self.radio_buttons.items():
             # Get automatic size of button
             ll, bb, ww, hh = radiobutton.ax.get_position().bounds
-            posy = bottom - hor_label_space - (hor_slider_space + slider_thick) * len(
-                hor_sliders) - button_thick + tot_height  # Adjust starting height height
+            posy = bottom - hor_label_space - bottom_space_sliders - button_thick + tot_height  # Adjust starting height height
 
             if val == 'activation':
                 i = 0
@@ -1590,7 +1606,7 @@ class neuralnetplotter(magicplotter):
         kwargs = self.collect_kwargs()
         if self.plot_truth is None:
             self.plot_truth, = self.ax.plot(self.x_truth, self.y_truth, 'k-', label=self.truth_label.format(**kwargs))
-            self.plot_true_loss, = self.ax2.plot(np.arange(len(self.rmse_true_ar)) * self.epochs_per_batch,
+            self.plot_true_loss, = self.ax2.plot(np.arange(len(self.rmse_true_ar)) * self.epochs_per_block,
                                                  self.rmse_true_ar, 'k-', label=self.true_loss_label.format(**kwargs))
 
             self.buttons['truth'].label.set_text('Hide truth')
@@ -1607,6 +1623,8 @@ class neuralnetplotter(magicplotter):
             self.ax.legend(loc='lower left')
             # self.ax2.legend(loc='upper right')
             self.ax2.legend(loc='lower left', bbox_to_anchor=(0.0, 0.8))
+        # Disable autoscaling, to make sure the limits remain enforced
+        plt.autoscale(False)
 
     def update_data(self, event):
 
