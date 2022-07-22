@@ -157,14 +157,12 @@ class magicplotter:
             self.x_data, self.y_data = x_data, y_data
             self.keep_data = True
         
-        # self.x_train = self.x_data if x_train is None else x_train
-        # self.y_train = self.y_data if y_train is None else y_train
-        
         self.x_train, self.y_train = self.x_data, self.y_data
         self.x_pred = self.x_data if x_pred is None else x_pred
         self.y_pred = self.f_pred(self.x_train, self.y_train, self.x_pred, **kwargs)
         self.x_truth = self.x_pred if x_truth is None else x_truth
         self.y_truth = self.f_truth(self.x_truth, **kwargs)
+        
         
         # Get additional settings like the original plot title and labels
         self.title = settings.get('title', None)
@@ -174,13 +172,23 @@ class magicplotter:
         self.val_label = settings.get('val_label', r'Validation data $(x,t)$')
         self.probe_label = settings.get('probe_label', r'Probe')
         self.hide_legend = settings.get('hide_legend', False)
+        
+        # get height and/or width if specified
+        if 'height' in settings:
+            self.h = settings['height']
 
+        if 'width' in settings:
+            self.w = settings['width']
+            
         # Get the given axes from the settings, or create a new figure
         if 'ax' in settings:
             self.ax = settings['ax']
             self.fig = self.ax.figure
         else:
             self.fig, self.ax = plt.subplots(figsize=(self.w,self.h))
+            
+        self.ax.set_xlabel('x')
+        self.ax.set_ylabel('t')
 
         # Add the truth, data and prediction
         self.plot_truth, = self.ax.plot(self.x_truth, self.y_truth, 'k-', label=self.truth_label.format(**kwargs))
