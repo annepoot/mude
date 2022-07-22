@@ -207,7 +207,7 @@ class magicplotter:
 
             # Otherwise, split the training and validation data
             x_shuffle, y_shuffle = shuffle(self.x_data, self.y_data)
-            N_split = int(kwargs['N'] * (1-kwargs['val_pct']/100))
+            N_split = int(np.ceil(kwargs['N'] * (1-kwargs['val_pct']/100)))
             self.x_train = x_shuffle[:N_split]
             self.y_train = y_shuffle[:N_split]
             self.x_val = x_shuffle[N_split:]
@@ -474,41 +474,6 @@ class magicplotter:
         # Adjust the plot to make room for the added slider
         self.adjust_plot()
 
-    # Add a radiobutton to the plot
-    def add_radiobutton(self, var, **settings):
-
-        # Check if the variable is in defaults
-        def_settings = self.defaults.get(var, {})
-
-        # Load all default/given values
-        activecolor = settings['activecolor'] if 'activecolor' in settings else def_settings['activecolor']
-        labels = settings['labels'] if 'labels' in settings else def_settings['labels']
-        update = settings['update'] if 'update' in settings else def_settings['update']
-        active = settings['active'] if 'active' in settings else def_settings['active']
-
-        # Create the button
-        # Note: it is important that the radiobutton is not created in exactly the same place as before
-        # otherwise, matplotlib will reuse the same axis
-        ax_button = self.fig.add_axes([0.1 * len(self.radio_buttons), 0., 0.1, 0.1])
-        radiobutton = RadioButtons(
-            ax=ax_button,
-            labels=labels,
-            active=active,
-            activecolor=activecolor
-        )
-
-        # Add the radiobutton to the dictionary that will store the radiobutton values
-        self.radio_buttons[var] = radiobutton
-
-        # Get the correct update function
-        update_func = self.get_update_func(update)
-
-        # Add an event to the radiobutton
-        radiobutton.on_clicked(update_func)
-
-        # Adjust the plot to make room for the added radiobutton
-        self.adjust_plot()
-
     # Add the mse sidebar to the right side of the plot
     def add_sidebar(self):
 
@@ -567,18 +532,11 @@ class magicplotter:
         for var in var_list:
             self.add_slider(var, **settings)
 
-
     # A nice wrapper to add multiple buttons at once
     def add_buttons(self, *var_list, **settings):
 
         for var in var_list:
             self.add_button(var, **settings)
-
-    # A nice wrapper to add multiple radio_buttons at once
-    def add_radiobuttons(self, *var_list, **settings):
-
-        for var in var_list:
-            self.add_radiobutton(var, **settings)
 
     # Adjust the plot to make room for the sliders
     def adjust_plot(self):
@@ -992,7 +950,7 @@ class neuralnetplotter(magicplotter):
             'position': 'Left'
         },
         'N': {
-            'valmin': 1,
+            'valmin': 2,
             'valmax': 200,
             'valinit': 30,
             'valfmt': '%0.0f',
@@ -1155,11 +1113,13 @@ class neuralnetplotter(magicplotter):
 
         self.fig = plt.figure(figsize=(self.w, self.h))
         self.ax = self.fig.add_subplot(121)
+        self.ax.set_title(self.title)
+        self.ax.set_xlabel('x')
+        self.ax.set_ylabel('t')
+
         self.ax2 = self.fig.add_subplot(122)
         self.ax2.set_xlim(0, 10000)
         self.ax2.set_ylim(0, 4)
-        self.ax.set_xlabel('x')
-        self.ax.set_ylabel('t')
         self.ax2.set_xlabel('Epochs')
         self.ax2.set_ylabel('RMSE')
 
@@ -1184,7 +1144,6 @@ class neuralnetplotter(magicplotter):
         self.activation_ax.set_ylim(-2, 2)
         self.plot_act, = self.activation_ax.plot([], [])
         self.activation_ax.axis('off')
-        self.plot_activation()
 
         # Call the show function
         # This also redirects to the update_data function
@@ -1296,12 +1255,6 @@ class neuralnetplotter(magicplotter):
 
         self.plot_val_loss.set_data([], []) # Empty validation loss, to reset it in case of %=0.
 
-        # Update the title
-        if self.title is None:
-            self.ax.set_title(None)
-        else:
-            self.ax.set_title(self.title.format(**kwargs))
-
         self.trained_models = []
 
         # Change colors of the Rerun button while training
@@ -1337,7 +1290,7 @@ class neuralnetplotter(magicplotter):
             self.ax2.legend = None
         else:
             self.ax.legend(loc='lower left')
-            self.ax2.legend(loc='lower left', bbox_to_anchor=(0.0, 0.8))
+            self.ax2.legend(loc='lower left', bbox_to_anchor=(0.0, 0.95))
 
         self.trainloop(epoch_blocks, **kwargs)
 
@@ -1401,9 +1354,12 @@ class neuralnetplotter(magicplotter):
         # Add an event to the slider
         slider.on_changed(update_func)
 
-        # If slider is neurons
+        # Hide the value of the model selector
+        if update == 'change model':
+            slider.valtext.set_visible(False)
+
+        # Draw image of the neural network if the number of neurons are optional
         if update == 'change_neurons':
-            # Draw image of the neural network
             self.network_ax = self.fig.add_axes([0.72, 0.11, 0.27, 0.27], anchor='SW', zorder=0)
             draw_neural_net(self.network_ax, .1, .9, .1, .9, [1, valinit, valinit, 1])
             self.network_ax.axis('off')
@@ -1411,6 +1367,52 @@ class neuralnetplotter(magicplotter):
 
         # Adjust the plot to make room for the added slider
         self.adjust_plot()
+
+
+    # Add a radiobutton to the plot
+    def add_radiobutton(self, var, **settings):
+
+        # Check if the variable is in defaults
+        def_settings = self.defaults.get(var, {})
+
+        # Load all default/given values
+        activecolor = settings['activecolor'] if 'activecolor' in settings else def_settings['activecolor']
+        labels = settings['labels'] if 'labels' in settings else def_settings['labels']
+        update = settings['update'] if 'update' in settings else def_settings['update']
+        active = settings['active'] if 'active' in settings else def_settings['active']
+
+        # Create the button
+        # Note: it is important that the radiobutton is not created in exactly the same place as before
+        # otherwise, matplotlib will reuse the same axis
+        ax_button = self.fig.add_axes([0.1 * len(self.radio_buttons), 0., 0.1, 0.1])
+        radiobutton = RadioButtons(
+            ax=ax_button,
+            labels=labels,
+            active=active,
+            activecolor=activecolor
+        )
+
+        # Add the radiobutton to the dictionary that will store the radiobutton values
+        self.radio_buttons[var] = radiobutton
+
+        # Get the correct update function
+        update_func = self.get_update_func(update)
+
+        # Add an event to the radiobutton
+        radiobutton.on_clicked(update_func)
+
+        # Draw image of the activation function if it is optional
+        if update == 'update_activation':
+            self.plot_activation()
+
+        # Adjust the plot to make room for the added radiobutton
+        self.adjust_plot()
+
+    # A nice wrapper to add multiple radio_buttons at once
+    def add_radiobuttons(self, *var_list, **settings):
+
+        for var in var_list:
+            self.add_radiobutton(var, **settings)
 
     # This function takes a string and returns the corresponding update function
     def get_update_func(self, update):
@@ -1455,7 +1457,7 @@ class neuralnetplotter(magicplotter):
         hor_sliders_right = [slider for slider in self.sliders_right.values() if slider.orientation == 'horizontal']
 
         # Even with few sliders, make space for the NN visualization
-        bottom_space_sliders = (hor_slider_space + slider_thick) * max(len(hor_sliders), 6 )
+        bottom_space_sliders = (hor_slider_space + slider_thick) * max(len(hor_sliders), 7 )
 
         # Get all the sizes of the main plot
         bottom = max(hor_label_space + bottom_space_sliders + (
@@ -1622,7 +1624,7 @@ class neuralnetplotter(magicplotter):
         else:
             self.ax.legend(loc='lower left')
             # self.ax2.legend(loc='upper right')
-            self.ax2.legend(loc='lower left', bbox_to_anchor=(0.0, 0.8))
+            self.ax2.legend(loc='lower left', bbox_to_anchor=(0.0, 0.95))
         # Disable autoscaling, to make sure the limits remain enforced
         plt.autoscale(False)
 
@@ -1649,7 +1651,7 @@ class neuralnetplotter(magicplotter):
         else:
             # Otherwise, split the training and validation data
             x_shuffle, y_shuffle = shuffle(self.x_data, self.y_data)
-            N_split = int(kwargs['N'] * (1 - kwargs['val_pct'] / 100))
+            N_split = int(np.ceil(kwargs['N'] * (1 - kwargs['val_pct'] / 100))) # Round up, having 1 sample will guarentee 1 in training set
             self.x_train = x_shuffle[:N_split]
             self.y_train = y_shuffle[:N_split]
             self.x_val = x_shuffle[N_split:]
@@ -1750,5 +1752,3 @@ def draw_neural_net(ax, left, right, bottom, top, layer_sizes):
                 line = plt.Line2D([n*h_spacing + left, (n + 1)*h_spacing + left],
                                   [layer_top_a - m*v_spacing, layer_top_b - o*v_spacing], c='k')
                 ax.add_artist(line)
-
-
