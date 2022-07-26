@@ -1736,6 +1736,11 @@ def draw_neural_net(ax, left, right, bottom, top, layer_sizes):
     n_layers = len(layer_sizes)
     v_spacing = (top - bottom)/float(max(layer_sizes))
     h_spacing = (right - left)/float(len(layer_sizes) - 1)
+
+    # read max layer size and compute linewidth with an offset
+    max_layer_size = max(layer_sizes)
+    linewidth = np.min(np.exp( - (max_layer_size - 5 ) / 10 ))
+
     # Nodes
     for n, layer_size in enumerate(layer_sizes):
         layer_top = v_spacing*(layer_size - 1)/2. + (top + bottom)/2.
@@ -1750,5 +1755,5 @@ def draw_neural_net(ax, left, right, bottom, top, layer_sizes):
         for m in range(layer_size_a):
             for o in range(layer_size_b):
                 line = plt.Line2D([n*h_spacing + left, (n + 1)*h_spacing + left],
-                                  [layer_top_a - m*v_spacing, layer_top_b - o*v_spacing], c='k')
+                                  [layer_top_a - m*v_spacing, layer_top_b - o*v_spacing], c='k', linewidth=linewidth)
                 ax.add_artist(line)
