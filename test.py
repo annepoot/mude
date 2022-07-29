@@ -32,16 +32,6 @@ def f_data(epsilon=0.7, N=100, **kwargs):
     return x, t
 
 
-# Function that normalizes data
-def norm_x(x, **kwargs):
-    return (x - kwargs['mean']) / kwargs['std']
-
-
-# Function that creates a NN
-def create_NN(**kwargs):
-    return MLPRegressor(solver='sgd', hidden_layer_sizes=(kwargs['neurons'], kwargs['neurons']),
-                        activation=kwargs['activation'], batch_size=kwargs['batch_size'])
-
 # Define the prediction locations
 # (note that these are different from the locations where we observed our data)
 x, t = f_data()
@@ -51,8 +41,16 @@ xscaler = StandardScaler()
 xscaler.fit(x[:,None])
 
 
+# Function that creates a NN
+def create_NN(**kwargs):
+    return MLPRegressor(solver='sgd', hidden_layer_sizes=(kwargs['neurons'], kwargs['neurons']),
+                        activation=kwargs['activation'], batch_size=kwargs['batch_size'])
+
+
 # Function that trains a given NN for a given number of epochs
-def NN_train(x, t, network, **kwargs):
+def NN_train(x, t, **kwargs):
+    # Get the network from the kwargs
+    network = kwargs.get('network')
 
     # Convert the training data to a column vector and normalize it
     X = x.reshape(-1, 1)
@@ -70,23 +68,23 @@ def NN_train(x, t, network, **kwargs):
 
 # Function that returns predictions from a given NN model
 def NN_pred(x, t, x_pred, **kwargs):
-
     # Get the network from the kwargs
     network = kwargs.get('network')
     return_network = kwargs.get('return_network', False)
 
     if network is None:
         network = create_NN(**kwargs)
+        kwargs['network'] = network
         retrain = True
     else:
-        retrain = kwargs['train_network']
+        retrain = kwargs.get('train_network', True)
 
     # Convert the prediction data to a column vector and normalize it
     X_pred = x_pred.reshape(-1, 1)
     X_pred = xscaler.transform(X_pred)
 
     if retrain:
-        network, train_loss = NN_train(x, t, network, **kwargs)
+        network, train_loss = NN_train(x, t, **kwargs)
 
     # Make a prediction at the locations given by x_pred
     y = network.predict(X_pred)
@@ -102,4 +100,3 @@ plot1.add_sliders('neurons', valmax=20, valinit=3)
 plot1.add_buttons('truth', 'seed', 'rerun')
 # plot1.add_radiobuttons('activation')
 plot1.show()
-plot1.train(0)

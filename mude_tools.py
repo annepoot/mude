@@ -1087,6 +1087,7 @@ class neuralnetplotter(magicplotter):
         self.plot_mse_val, = self.ax_mse.plot([], [], '-', color='purple', label=self.val_loss_label.format(**kwargs))
 
         self.plot_cur_epoch = self.ax_mse.axvline(kwargs['epochs'], 0, 1, linestyle='--', color='green')
+        self.network = None
 
         # # Initialize the validation set, probe, probe set and sidebar (to ensure they exist)
         # self.plot_val = None
@@ -1169,7 +1170,7 @@ class neuralnetplotter(magicplotter):
         for i in range(kwargs['epoch_blocks']):
 
             # Train for a fixed number of epochs
-            self.y_pred, self.network, mse_train_ar = self.f_pred(self.x_train, self.y_train, self.x_pred,
+            self.y_pred, self.network, mse_train_ar = self.f_pred(self.x_train, self.y_train, self.x_pred, network=self.network,
                                                                   train_network=True, return_network=True, **kwargs)
 
             self.mse_train = np.sqrt(np.array(mse_train_ar) * 2)     # Automatically computes (1/(2N) SUM ||..||2 ), so multiply by 2 first
@@ -1178,7 +1179,7 @@ class neuralnetplotter(magicplotter):
 
             # Compute the validation error
             if self.x_val is not None:
-                val_pred = self.f_pred(self.x_train, self.y_train, self.x_val, train_network=False, **kwargs)
+                val_pred = self.f_pred(self.x_train, self.y_train, self.x_val, network=self.network, train_network=False, **kwargs)
                 mse_validation_ar.append(sum((val_pred - self.y_val) ** 2) / len(self.x_val))
                 self.mse_validation = np.sqrt(np.array(mse_validation_ar))
                 self.plot_mse_val.set_data(np.arange(len(self.mse_validation)) * self.get_epochs_per_block(), self.mse_validation)
@@ -1546,10 +1547,6 @@ class neuralnetplotter(magicplotter):
         # Repeat for radio_buttons:
         for val, radiobutton in self.radio_buttons.items():
             kwargs[val] = radiobutton.value_selected
-
-        # Add the network to the kwargs if it exists
-        if 'network' in vars(self):
-            kwargs['network'] = self.network
 
         return kwargs
 
