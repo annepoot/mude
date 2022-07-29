@@ -1067,10 +1067,10 @@ class neuralnetplotter(magicplotter):
         # self.ax_mse.set_ylabel('RMSE')
 
         self.add_sidebar()
-        self.ax_mse.set_xlim(0, 10000)
-        self.ax_mse.set_ylim(0, 4)
-        self.ax_mse.set_xlabel('Epochs')
-        self.ax_mse.set_ylabel('RMSE')
+        # self.ax_mse.set_xlim(0, 10000)
+        # self.ax_mse.set_ylim(0, 4)
+        # self.ax_mse.set_xlabel('Epochs')
+        # self.ax_mse.set_ylabel('RMSE')
 
         # Collect all key word arguments
         kwargs = self.collect_kwargs()
@@ -1367,6 +1367,19 @@ class neuralnetplotter(magicplotter):
 
         for var in var_list:
             self.add_radiobutton(var, **settings)
+
+    # Add the mse sidebar to the right side of the plot
+    def add_sidebar(self):
+
+        super().add_sidebar()
+
+        # Set the layout of the sidebar
+        self.ax_mse.yaxis.grid()
+        self.ax_mse.set_xlim(0, 10000)
+        self.ax_mse.set_ylim(0, 4)
+        self.ax_mse.set_xticks([])
+        self.ax_mse.set_xlabel('Epochs')
+        self.ax_mse.set_ylabel('RMSE')
 
     # This function takes a string and returns the corresponding update function
     def get_update_func(self, update):
