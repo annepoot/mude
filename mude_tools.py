@@ -1209,6 +1209,7 @@ class neuralnetplotter(magicplotter):
         self.plot_mse_val.set_data([], []) # Empty validation loss, to reset it in case of %=0.
 
         self.trained_models = []
+        self.network = None
 
         # Change colors of the Rerun button while training
         self.buttons['rerun'].color = 'green'
