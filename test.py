@@ -2,11 +2,7 @@
 import numpy as np
 from sklearn.neural_network import MLPRegressor
 from mude_tools import neuralnetplotter
-
-# Define the prediction locations
-# (note that these are different from the locations where we observed our data)
-x_pred = np.linspace(-1, 2 * np.pi + 1, 200)
-
+from sklearn.preprocessing import StandardScaler
 
 # The true function relating t to x
 def f_truth(x, freq=2, **kwargs):
@@ -46,17 +42,28 @@ def create_NN(**kwargs):
     return MLPRegressor(solver='sgd', hidden_layer_sizes=(kwargs['neurons'], kwargs['neurons']),
                         activation=kwargs['activation'], batch_size=kwargs['batch_size'])
 
+# Define the prediction locations
+# (note that these are different from the locations where we observed our data)
+x, t = f_data()
+x_pred = np.linspace(-1, 2 * np.pi + 1, 200)
+
+xscaler = StandardScaler()
+xscaler.fit(x[:,None])
+
 
 # Function that trains a given NN for a given number of epochs
 def NN_train(x, t, network, **kwargs):
 
-    # Normalize the training data and convert to a column vecto rin order for MLPRegressor to work
-    x = norm_x(x, **kwargs)
+    # Convert the training data to a column vector and normalize it
     X = x.reshape(-1, 1)
+    X = xscaler.transform(X)
+
+    # Get the number of epochs per block
+    epochs_per_block = int(round(kwargs['epochs'] / kwargs['epoch_blocks'], 0))
 
     # Run a number of epochs
-    for i in range(kwargs['epochs_per_block']):
-        network.partial_fit(x, t)
+    for i in range(epochs_per_block):
+        network.partial_fit(X, t)
 
     return network, network.loss_curve_
 
@@ -65,12 +72,18 @@ def NN_train(x, t, network, **kwargs):
 def NN_pred(x, t, x_pred, **kwargs):
 
     # Get the network from the kwargs
-    retrain = kwargs['train_network']
-    network = kwargs['network']
+    network = kwargs.get('network')
+    return_network = kwargs.get('return_network', False)
 
-    # Convert x and x_pred to a column vector in order for MPLRegressor to work
-    X = x.reshape(-1, 1)
+    if network is None:
+        network = create_NN(**kwargs)
+        retrain = True
+    else:
+        retrain = kwargs['train_network']
+
+    # Convert the prediction data to a column vector and normalize it
     X_pred = x_pred.reshape(-1, 1)
+    X_pred = xscaler.transform(X_pred)
 
     if retrain:
         network, train_loss = NN_train(x, t, network, **kwargs)
@@ -78,7 +91,7 @@ def NN_pred(x, t, x_pred, **kwargs):
     # Make a prediction at the locations given by x_pred
     y = network.predict(X_pred)
 
-    if retrain:
+    if return_network:
         return y, network, train_loss
     else:
         return y

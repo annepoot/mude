@@ -950,6 +950,9 @@ class neuralnetplotter(magicplotter):
             'position': 'Left',
             'valstep': np.arange(1000, 10050, 50)
         },
+        'epoch_blocks': {
+            'valinit': 200
+        },
         'cur_model': {
             'valmin': 1,
             'valmax': 200,
@@ -1033,78 +1036,59 @@ class neuralnetplotter(magicplotter):
     # Create the initial plot
     def __init__(self, f_data, f_truth, f_create, f_train, f_pred, x_pred=None, x_truth=None, network=None, **settings):
 
-        # Define a seed to make sure all results are reproducible
-        self.seed = 2
-
         # Create an empty dictionary, which will later store all slider values
-        self.sliders = {}
         self.sliders_right = {}
-        self.buttons = {}
         self.radio_buttons = {}
-        # self.trained_models = []
-
-        # Store the additional settings
-        self.settings = settings
-
-        # Collect all key word arguments
-        kwargs = self.collect_kwargs()
-
-        # Store all variables that were passed to the init function
-        self.f_data = f_data
-        self.f_truth = f_truth
-        self.f_create = f_create
-        self.f_train = f_train
-        self.f_pred = f_pred
-        self.x_data, self.y_data = self.f_data(**kwargs)
-        self.x_train, self.y_train = self.x_data, self.y_data
-        self.x_pred = self.x_data if x_pred is None else x_pred
-        self.x_truth = self.x_pred if x_truth is None else x_truth
-        self.y_truth = self.f_truth(self.x_truth, **kwargs)
 
         # Data for truth function
         self.x_dense = np.linspace(0, 2 * np.pi, 1500)
-        self.y_dense = f_truth(self.x_dense, **kwargs) + np.random.normal(0, kwargs['epsilon'], len(self.x_dense))
+        # self.y_dense = f_truth(self.x_dense, **kwargs) + np.random.normal(0, kwargs['epsilon'], len(self.x_dense))
+
+        # Perform the initialization of the magiplotter stuff first
+        # This also redirects to the update_pred function
+        super().__init__(f_data, f_truth, f_pred, x_pred, x_truth, **settings)
 
         # Get additional settings like the original plot title and labels
-        self.title = settings.get('title', None)
-        self.data_label = settings.get('data_label', r'Training data $(x,t)$')
-        self.truth_label = settings.get('truth_label', r'Ground truth $f(x)$')
-        self.pred_label = settings.get('pred_label', r'Prediction $y(x)$, $k={k}$')
-        self.val_label = settings.get('val_label', r'Validation data $(x,t)$')
-        self.probe_label = settings.get('probe_label', r'Probe')
-        self.hide_legend = settings.get('hide_legend', False)
-
         # self.vline_label = settings.get('vline_label', 'Selected model')
         self.train_loss_label = settings.get('tr_label', 'Training error')
         self.val_loss_label = settings.get('val_label', 'Validation error')
         self.true_loss_label = settings.get('true_label', 'True error')
 
-        self.fig = plt.figure(figsize=(self.w, self.h))
-        self.ax = self.fig.add_subplot(121)
-        self.ax.set_title(self.title)
-        self.ax.set_xlabel('x')
-        self.ax.set_ylabel('t')
+        # self.fig = plt.figure(figsize=(self.w, self.h))
+        # self.ax = self.fig.add_subplot(121)
+        # self.ax.set_title(self.title)
+        # self.ax.set_xlabel('x')
+        # self.ax.set_ylabel('t')
 
-        self.ax2 = self.fig.add_subplot(122)
-        self.ax2.set_xlim(0, 10000)
-        self.ax2.set_ylim(0, 4)
-        self.ax2.set_xlabel('Epochs')
-        self.ax2.set_ylabel('RMSE')
+        # self.ax_mse = self.fig.add_subplot(122)
+        # self.ax_mse.set_xlim(0, 10000)
+        # self.ax_mse.set_ylim(0, 4)
+        # self.ax_mse.set_xlabel('Epochs')
+        # self.ax_mse.set_ylabel('RMSE')
 
-        # Add the truth, data and prediction
-        self.plot_truth, = self.ax.plot(self.x_truth, self.y_truth, 'k-', label=self.truth_label.format(**kwargs))
-        self.plot_data, = self.ax.plot(self.x_train, self.y_train, 'x', label=self.data_label.format(**kwargs))
-        self.plot_pred, = self.ax.plot([], [], '-', label=self.pred_label.format(**kwargs))
-        self.plot_tr_loss, = self.ax2.plot([], [], '-', label=self.train_loss_label.format(**kwargs))
-        self.plot_true_loss, = self.ax2.plot([], [], 'k-', label=self.true_loss_label.format(**kwargs))
-        self.plot_val_loss, = self.ax2.plot([], [], '-', color='purple', label=self.val_loss_label.format(**kwargs))
+        self.add_sidebar()
+        self.ax_mse.set_xlim(0, 10000)
+        self.ax_mse.set_ylim(0, 4)
+        self.ax_mse.set_xlabel('Epochs')
+        self.ax_mse.set_ylabel('RMSE')
 
-        self.plot_cur_epoch = self.ax2.axvline(kwargs['epochs'], 0, 1, linestyle='--', color='green')
+        # Collect all key word arguments
+        kwargs = self.collect_kwargs()
 
-        # Initialize the validation set, probe, probe set and sidebar (to ensure they exist)
-        self.plot_val = None
-        self.plot_probe = None
-        self.plot_neighbors = None
+        # # Add the truth, data and prediction
+        # self.plot_truth, = self.ax.plot(self.x_truth, self.y_truth, 'k-', label=self.truth_label.format(**kwargs))
+        # self.plot_data, = self.ax.plot(self.x_train, self.y_train, 'x', label=self.data_label.format(**kwargs))
+        # self.plot_pred, = self.ax.plot([], [], '-', label=self.pred_label.format(**kwargs))
+        self.plot_tr_loss, = self.ax_mse.plot([], [], '-', label=self.train_loss_label.format(**kwargs))
+        self.plot_true_loss, = self.ax_mse.plot([], [], 'k-', label=self.true_loss_label.format(**kwargs))
+        self.plot_val_loss, = self.ax_mse.plot([], [], '-', color='purple', label=self.val_loss_label.format(**kwargs))
+
+        self.plot_cur_epoch = self.ax_mse.axvline(kwargs['epochs'], 0, 1, linestyle='--', color='green')
+
+        # # Initialize the validation set, probe, probe set and sidebar (to ensure they exist)
+        # self.plot_val = None
+        # self.plot_probe = None
+        # self.plot_neighbors = None
 
         # Draw image of the activation function
         self.activation_ax = self.fig.add_axes([0.85, 0.02, 0.10, 0.10], anchor='SW', zorder=1)
@@ -1113,10 +1097,10 @@ class neuralnetplotter(magicplotter):
         self.plot_act, = self.activation_ax.plot([], [])
         self.activation_ax.axis('off')
 
-        # Call the show function
-        # This also redirects to the update_data function
-        self.shown = False
-        self.show()
+        # # Call the show function
+        # # This also redirects to the update_data function
+        # self.shown = False
+        # self.show()
 
     # When a slider is changed, don't do anything except changing the 'Run' button appearance
     def passive(self, event):
@@ -1181,13 +1165,15 @@ class neuralnetplotter(magicplotter):
 
         # Loop over epoch nums. A block here contains multiple epochs
         for i in range(epoch_blocks):
+
             # Train for a fixed number of epochs
-            self.network, mse_train_ar = self.f_train(self.network, self.x_train, self.y_train, **kwargs)
+            self.y_pred, self.network, mse_train_ar = self.f_pred(self.network, self.x_train, self.y_train, train_network=True, **kwargs)
+            self.mse_train = mse_train_ar
 
             rmse_train_ar = np.sqrt(np.array(mse_train_ar) * 2)     # Automatically computes (1/(2N) SUM ||..||2 ), so multiply by 2 first
 
-            y_pred = self.f_pred(self.network, self.x_pred, **kwargs)
-            self.plot_pred.set_data(self.x_pred, y_pred)
+            # y_pred = self.f_pred(self.network, self.x_pred, **kwargs)
+            self.plot_pred.set_data(self.x_pred, self.y_pred)
 
             # Compute the validation error
             if self.x_val is not None:
@@ -1205,14 +1191,14 @@ class neuralnetplotter(magicplotter):
 
             self.rmse_true_ar.append(np.sqrt(self.dense_sampling_error(**kwargs)))
 
-            self.ax2.set_ybound((0, upper_bound))
+            self.ax_mse.set_ybound((0, upper_bound))
 
             self.plot_tr_loss.set_data(np.arange(len(rmse_train_ar)), rmse_train_ar)
             self.plot_true_loss.set_data(np.arange(len(self.rmse_true_ar)) * self.epochs_per_block, self.rmse_true_ar)
             self.fig.canvas.draw()
 
             # Store prediction to select back after training
-            self.trained_models.append(y_pred)
+            self.trained_models.append(self.y_pred)
 
     # The train function
     def train(self, event):
@@ -1240,7 +1226,7 @@ class neuralnetplotter(magicplotter):
         kwargs['epochs_per_block'] = self.epochs_per_block
 
         # Set limit of loss function plot
-        self.ax2.set_xbound((0, epochs))
+        self.ax_mse.set_xbound((0, epochs))
         # Set 'selected model' to end
         if 'cur_model' in self.sliders_right:
             self.sliders_right['cur_model'].set_val(epoch_blocks)
@@ -1255,10 +1241,10 @@ class neuralnetplotter(magicplotter):
         # Update legend
         if self.hide_legend:
             self.ax.legend = None
-            self.ax2.legend = None
+            self.ax_mse.legend = None
         else:
             self.ax.legend(loc='lower left')
-            self.ax2.legend(loc='lower left', bbox_to_anchor=(0.0, 0.95))
+            self.ax_mse.legend(loc='lower left', bbox_to_anchor=(0.0, 0.95))
 
         self.trainloop(epoch_blocks, **kwargs)
 
@@ -1443,12 +1429,12 @@ class neuralnetplotter(magicplotter):
         self.ax.set_position([left, bottom, mainplot_width, height])
 
         # Set the position of the sideplot if it exists
-        if not self.ax2 is None:
+        if not self.ax_mse is None:
             # Change the size of the main figure
             self.fig.set_figwidth(self.w + hor_plot_space + sideplot_width + 1.0)
 
             # Set the position of the sideplot
-            self.ax2.set_position(
+            self.ax_mse.set_position(
                 # [1 - right + ver_slider_space,
                 [1 - right_space - sideplot_width,
                  bottom,
@@ -1528,29 +1514,8 @@ class neuralnetplotter(magicplotter):
     # Define a function that collects all key word arguments
     def collect_kwargs(self):
 
-        # Initialize an empty dictionary
-        kwargs = {}
-
-        # First, go through all sliders in the default settings and store their initial values
-        for val, val_dict in self.defaults.items():
-
-            # Check if the slider has a initial value
-            if 'valinit' in val_dict:
-                # If so, store it in the kwargs
-                kwargs[val] = val_dict['valinit']
-
-        # Then, go through all custom settings, and store their values
-        for val, setting in self.settings.items():
-            kwargs[val] = setting
-
-        # Go through all current sliders, and store their current values
-        for val, slider in self.sliders.items():
-
-            # Check if the slider should return an integer
-            if slider.valfmt == '%0.0f':
-                kwargs[val] = round(slider.val)
-            else:
-                kwargs[val] = slider.val
+        # First collect the magicplotter kwargs
+        kwargs = super().collect_kwargs()
 
         # Go through all current sliders, and store their current values
         for val, slider in self.sliders_right.items():
@@ -1565,24 +1530,24 @@ class neuralnetplotter(magicplotter):
         for val, radiobutton in self.radio_buttons.items():
             kwargs[val] = radiobutton.value_selected
 
-        # Add the current seed to the dictionary
-        kwargs['seed'] = self.seed
+        # Add the network to the kwargs if it exists
+        if 'network' in vars(self):
+            kwargs['network'] = self.network
 
         return kwargs
 
-        # Define the function that will be called when the hide/show truth button is called
-
+    # Define the function that will be called when the hide/show truth button is called
     def toggle_truth(self, event):
         kwargs = self.collect_kwargs()
         if self.plot_truth is None:
             self.plot_truth, = self.ax.plot(self.x_truth, self.y_truth, 'k-', label=self.truth_label.format(**kwargs))
-            self.plot_true_loss, = self.ax2.plot(np.arange(len(self.rmse_true_ar)) * self.epochs_per_block,
+            self.plot_true_loss, = self.ax_mse.plot(np.arange(len(self.rmse_true_ar)) * self.epochs_per_block,
                                                  self.rmse_true_ar, 'k-', label=self.true_loss_label.format(**kwargs))
 
             self.buttons['truth'].label.set_text('Hide truth')
         else:
             self.ax.lines.remove(self.plot_truth)
-            self.ax2.lines.remove(self.plot_true_loss)
+            self.ax_mse.lines.remove(self.plot_true_loss)
             self.plot_truth = None
             self.buttons['truth'].label.set_text('Show truth')
 
@@ -1591,8 +1556,8 @@ class neuralnetplotter(magicplotter):
             self.ax.legend = None
         else:
             self.ax.legend(loc='lower left')
-            # self.ax2.legend(loc='upper right')
-            self.ax2.legend(loc='lower left', bbox_to_anchor=(0.0, 0.95))
+            # self.ax_mse.legend(loc='upper right')
+            self.ax_mse.legend(loc='lower left', bbox_to_anchor=(0.0, 0.95))
         # Disable autoscaling, to make sure the limits remain enforced
         plt.autoscale(False)
 
@@ -1655,29 +1620,8 @@ class neuralnetplotter(magicplotter):
         # Allow for automatic updating of the plot
         self.fig.canvas.draw_idle()
 
-    # Define a show function, so importing matplotlib is not strictly necessary in the notebooks
-    # Shows plot without updating data
-    def show(self):
-
-        # Update the plot
-        self.update_data(0)
-
-        # Adjust the plot
-        self.adjust_plot()
-
-        # Check if show has already been called
-        if 'ax' in self.settings:
-            self.shown = True
-
-        # Check if the plot has already been shown
-        if not self.shown:
-            # If not, forward to plt.show()
-            # Note that plt.show() should only be called once!
-            plt.show()
-
-            # Remember that the plot has now been shown
-            self.shown = True
-
+        # After updating the data, the prediction should be updated as well
+        self.update_pred(event)
 
 def draw_neural_net(ax, left, right, bottom, top, layer_sizes):
     '''
