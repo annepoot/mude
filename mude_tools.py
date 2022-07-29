@@ -926,49 +926,9 @@ class biasvarianceplotter(magicplotter):
 
 
 class neuralnetplotter(magicplotter):
+
     # Define the default settings for all sliders
-    # Use ones in parent class, and overwrite them in notebook.
     defaults = {
-        'epsilon': {
-            'valmin': 0,
-            'valmax': 1,
-            'valinit': 0.4,
-            'valfmt': None,
-            'orientation': 'horizontal',
-            'label': r'Noise ($\varepsilon$)',
-            'update': 'passive',
-            'position': 'Left'
-        },
-        'k': {
-            'valmin': 1,
-            'valmax': 100,
-            'valinit': 1,
-            'valfmt': '%0.0f',
-            'orientation': 'horizontal',
-            'label': r'Neighbors ($k$)',
-            'update': 'passive',
-            'position': 'Left'
-        },
-        'N': {
-            'valmin': 2,
-            'valmax': 200,
-            'valinit': 30,
-            'valfmt': '%0.0f',
-            'orientation': 'horizontal',
-            'label': r'Training size ($N$)',
-            'update': 'passive',
-            'position': 'Left'
-        },
-        'freq': {
-            'valmin': 1 / 8,
-            'valmax': 5,
-            'valinit': 3.4,
-            'valfmt': None,
-            'orientation': 'horizontal',
-            'label': r'Frequency ($freq$)',
-            'update': 'passive',
-            'position': 'Left'
-        },
         'neurons': {
             'valmin': 1,
             'valmax': 35,
@@ -1011,35 +971,6 @@ class neuralnetplotter(magicplotter):
             'update': 'passive',
             'position': 'Left'
         },
-        'val_pct': {
-            'valmin': 0,
-            'valmax': 60,
-            'valinit': 30,
-            'valfmt': None,
-            'orientation': 'horizontal',
-            'label': r'Validation size ($\%$)',
-            'update': 'passive',
-            'position': 'Left',
-            'valstep': np.arange(0, 65, 5)
-        },
-        'truth': {
-            'index': 1,
-            'hovercolor': '0.975',
-            'label': 'Hide truth',
-            'update': 'truth'
-        },
-        'seed': {
-            'index': 2,
-            'hovercolor': '0.975',
-            'label': 'New seed',
-            'update': 'seed'
-        },
-        'reset': {
-            'index': 3,
-            'hovercolor': '0.975',
-            'label': 'Reset',
-            'update': 'passive'
-        },
         'rerun': {
             'index': 3,
             'hovercolor': '0.975',
@@ -1056,11 +987,48 @@ class neuralnetplotter(magicplotter):
         },
     }
 
-    w = 8
-    h = 6
-    r = h / w
+    defaults.update(magicplotter.defaults)
 
-    # defaults.update(magicplotter.defaults)
+    # Modify the preexisting defaults appropriately
+    defaults['epsilon'].update(
+        {
+            'valinit': 0.4,
+            'orientation': 'horizontal',
+            'update': 'passive',
+            'position': 'Left'
+        })
+    defaults['k'].update(
+        {
+            'update': 'passive',
+            'position': 'Left'
+        })
+    defaults['N'].update(
+        {
+            'valmin': 2,
+            'valmax': 200,
+            'valinit': 30,
+            'update': 'passive',
+            'position': 'Left'
+        })
+    defaults['freq'].update(
+        {
+            'valmax': 5,
+            'valinit': 3.4,
+            'update': 'passive',
+            'position': 'Left'
+        })
+    defaults['val_pct'].update(
+        {
+            'valmax': 60,
+            'valinit': 30,
+            'update': 'passive',
+            'position': 'Left',
+            'valstep': np.arange(0, 65, 5)
+        })
+    defaults['reset'].update(
+        {
+            'update': 'passive'
+        })
 
     # Create the initial plot
     def __init__(self, f_data, f_truth, f_create, f_train, f_pred, x_pred=None, x_truth=None, network=None, **settings):
