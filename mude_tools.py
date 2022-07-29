@@ -541,7 +541,7 @@ class magicplotter:
     # Adjust the plot to make room for the sliders
     def adjust_plot(self):
 
-        F = self.r
+        r = self.r
         slider_thick = 0.03
         hor_slider_space = 0.02
         ver_slider_space = 0.07
