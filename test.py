@@ -97,8 +97,9 @@ def NN_pred(x, t, x_pred, **kwargs):
         return y
 
 
-plot1 = neuralnetplotter(f_data, f_truth, create_NN, NN_train, NN_pred, x_pred)  # title=r'Run cell above plot before using!')
+plot1 = neuralnetplotter(f_data, f_truth, NN_pred, x_pred)  # title=r'Run cell above plot before using!')
 plot1.add_sliders('neurons', valmax=20, valinit=3)
 plot1.add_buttons('truth', 'seed', 'rerun')
 # plot1.add_radiobuttons('activation')
 plot1.show()
+plot1.train(0)

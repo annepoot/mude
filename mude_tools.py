@@ -1034,7 +1034,7 @@ class neuralnetplotter(magicplotter):
         })
 
     # Create the initial plot
-    def __init__(self, f_data, f_truth, f_create, f_train, f_pred, x_pred=None, x_truth=None, network=None, **settings):
+    def __init__(self, f_data, f_truth, f_pred, x_pred=None, x_truth=None, **settings):
 
         # Create an empty dictionary, which will later store all slider values
         self.sliders_right = {}
@@ -1066,6 +1066,9 @@ class neuralnetplotter(magicplotter):
         # self.ax_mse.set_xlabel('Epochs')
         # self.ax_mse.set_ylabel('RMSE')
 
+        self.mse_train = 0
+        self.mse_validation = 0
+
         self.add_sidebar()
         # self.ax_mse.set_xlim(0, 10000)
         # self.ax_mse.set_ylim(0, 4)
@@ -1079,9 +1082,9 @@ class neuralnetplotter(magicplotter):
         # self.plot_truth, = self.ax.plot(self.x_truth, self.y_truth, 'k-', label=self.truth_label.format(**kwargs))
         # self.plot_data, = self.ax.plot(self.x_train, self.y_train, 'x', label=self.data_label.format(**kwargs))
         # self.plot_pred, = self.ax.plot([], [], '-', label=self.pred_label.format(**kwargs))
-        self.plot_tr_loss, = self.ax_mse.plot([], [], '-', label=self.train_loss_label.format(**kwargs))
-        self.plot_true_loss, = self.ax_mse.plot([], [], 'k-', label=self.true_loss_label.format(**kwargs))
-        self.plot_val_loss, = self.ax_mse.plot([], [], '-', color='purple', label=self.val_loss_label.format(**kwargs))
+        self.plot_mse_train, = self.ax_mse.plot([], [], '-', label=self.train_loss_label.format(**kwargs))
+        self.plot_mse_true, = self.ax_mse.plot([], [], 'k-', label=self.true_loss_label.format(**kwargs))
+        self.plot_mse_val, = self.ax_mse.plot([], [], '-', color='purple', label=self.val_loss_label.format(**kwargs))
 
         self.plot_cur_epoch = self.ax_mse.axvline(kwargs['epochs'], 0, 1, linestyle='--', color='green')
 
@@ -1158,43 +1161,38 @@ class neuralnetplotter(magicplotter):
         # Allow for automatic updating of the plot
         self.fig.canvas.draw_idle()
 
-    def trainloop(self, epoch_blocks, **kwargs):
+    def trainloop(self, **kwargs):
         mse_validation_ar = []
-        self.mse_true_ar = []
-        self.rmse_true_ar = []
+        self.mse_true = []
 
         # Loop over epoch nums. A block here contains multiple epochs
-        for i in range(epoch_blocks):
+        for i in range(kwargs['epoch_blocks']):
 
             # Train for a fixed number of epochs
-            self.y_pred, self.network, mse_train_ar = self.f_pred(self.network, self.x_train, self.y_train, train_network=True, **kwargs)
-            self.mse_train = mse_train_ar
+            self.y_pred, self.network, mse_train_ar = self.f_pred(self.x_train, self.y_train, self.x_pred,
+                                                                  train_network=True, return_network=True, **kwargs)
 
-            rmse_train_ar = np.sqrt(np.array(mse_train_ar) * 2)     # Automatically computes (1/(2N) SUM ||..||2 ), so multiply by 2 first
+            self.mse_train = np.sqrt(np.array(mse_train_ar) * 2)     # Automatically computes (1/(2N) SUM ||..||2 ), so multiply by 2 first
 
-            # y_pred = self.f_pred(self.network, self.x_pred, **kwargs)
-            self.plot_pred.set_data(self.x_pred, self.y_pred)
+            self.mse_true.append(np.sqrt(self.dense_sampling_error(**kwargs)))
 
             # Compute the validation error
             if self.x_val is not None:
-                val_pred = self.f_pred(self.network, self.x_val, **kwargs)
-
+                val_pred = self.f_pred(self.x_train, self.y_train, self.x_val, train_network=False, **kwargs)
                 mse_validation_ar.append(sum((val_pred - self.y_val) ** 2) / len(self.x_val))
-                rmse_validation_ar = np.sqrt(np.array(mse_validation_ar))
-
-                self.plot_val_loss.set_data(np.arange(len(rmse_validation_ar)) * self.epochs_per_block, rmse_validation_ar)
+                self.mse_validation = np.sqrt(np.array(mse_validation_ar))
+                self.plot_mse_val.set_data(np.arange(len(self.mse_validation)) * self.get_epochs_per_block(), self.mse_validation)
 
                 # Compute boundary of the plot
-                upper_bound = max(min(rmse_train_ar) * 2, min(rmse_validation_ar) * 1.5, sum(rmse_validation_ar[-5:]) / 5 * 1.2, sum(self.rmse_true_ar[-5:]) / 5 * 1.2)
+                upper_bound = max(min(self.mse_train) * 2, min(self.mse_validation) * 1.5, sum(self.mse_validation[-5:]) / 5 * 1.2, sum(self.mse_true[-5:]) / 5 * 1.2)
             else:
-                upper_bound = max(min(rmse_train_ar) * 2, sum(self.rmse_true_ar[-5:]) / 5 * 1.2)
-
-            self.rmse_true_ar.append(np.sqrt(self.dense_sampling_error(**kwargs)))
+                upper_bound = max(min(self.mse_train) * 2, sum(self.mse_true[-5:]) / 5 * 1.2)
 
             self.ax_mse.set_ybound((0, upper_bound))
 
-            self.plot_tr_loss.set_data(np.arange(len(rmse_train_ar)), rmse_train_ar)
-            self.plot_true_loss.set_data(np.arange(len(self.rmse_true_ar)) * self.epochs_per_block, self.rmse_true_ar)
+            self.plot_pred.set_data(self.x_pred, self.y_pred)
+            self.plot_mse_train.set_data(np.arange(len(self.mse_train)), self.mse_train)
+            self.plot_mse_true.set_data(np.arange(len(self.mse_true)) * self.get_epochs_per_block(), self.mse_true)
             self.fig.canvas.draw()
 
             # Store prediction to select back after training
@@ -1207,7 +1205,7 @@ class neuralnetplotter(magicplotter):
         # Update the legend
         self.plot_pred.set_label(self.pred_label.format(**kwargs))
 
-        self.plot_val_loss.set_data([], []) # Empty validation loss, to reset it in case of %=0.
+        self.plot_mse_val.set_data([], []) # Empty validation loss, to reset it in case of %=0.
 
         self.trained_models = []
 
@@ -1216,27 +1214,23 @@ class neuralnetplotter(magicplotter):
         self.buttons['rerun'].label.set_text('Running')
         self.buttons['rerun'].hovercolor = 'green'
 
-        # Create initial network
-        self.network = self.f_create(**kwargs)
+        # # Create initial network
+        # self.network = self.f_create(**kwargs)
 
-        epochs = kwargs['epochs']
-        # A block here is multiple epochs with a single validation update
-        epoch_blocks = 200   #  Matches number of 'selected models'
-        self.epochs_per_block = int(round(epochs / epoch_blocks, 0)) # This can give a mismatch between shown and selected model
-        kwargs['epochs_per_block'] = self.epochs_per_block
+        # epochs = kwargs['epochs']
+        # # A block here is multiple epochs with a single validation update
+        # epoch_blocks = 200   #  Matches number of 'selected models'
+        # self.epochs_per_block = int(round(epochs / epoch_blocks, 0)) # This can give a mismatch between shown and selected model
+        # kwargs['epochs_per_block'] = self.epochs_per_block
 
         # Set limit of loss function plot
-        self.ax_mse.set_xbound((0, epochs))
+        self.ax_mse.set_xbound((0, kwargs['epochs']))
         # Set 'selected model' to end
         if 'cur_model' in self.sliders_right:
-            self.sliders_right['cur_model'].set_val(epoch_blocks)
+            self.sliders_right['cur_model'].set_val(kwargs['epoch_blocks'])
 
         # Data
         self.update_data(0)
-
-        # Add normalization bounds to kwargs based on provided data
-        kwargs['mean'] = np.mean(self.x_data)
-        kwargs['std'] = np.std(self.x_data)
 
         # Update legend
         if self.hide_legend:
@@ -1246,7 +1240,7 @@ class neuralnetplotter(magicplotter):
             self.ax.legend(loc='lower left')
             self.ax_mse.legend(loc='lower left', bbox_to_anchor=(0.0, 0.95))
 
-        self.trainloop(epoch_blocks, **kwargs)
+        self.trainloop(**kwargs)
 
         # Change colors of the Rerun button back
         self.buttons['rerun'].color = 'gray'
@@ -1257,7 +1251,8 @@ class neuralnetplotter(magicplotter):
 
     # Approximate the 'true error' with a dense sampling of the space & network predictions
     def dense_sampling_error(self, **kwargs):
-        return sum((self.y_dense - self.f_pred(self.network, self.x_dense, **kwargs)) ** 2) / len(self.x_dense)
+        return sum((self.y_dense - self.f_pred(self.x_train, self.y_train, self.x_dense, network = self.network,
+                                               train_network=False, **kwargs)) ** 2) / len(self.x_dense)
 
     # Add a slider below the plot; with minimal spacing
     def add_slider(self, var, **settings):
@@ -1380,6 +1375,15 @@ class neuralnetplotter(magicplotter):
         self.ax_mse.set_xticks([])
         self.ax_mse.set_xlabel('Epochs')
         self.ax_mse.set_ylabel('RMSE')
+
+        # Remove the existing training and validation loss
+        if self.plot_mse_train is not None:
+            self.ax_mse.lines.remove(self.plot_mse_train)
+            self.plot_mse_train = None
+
+        if self.plot_mse_val is not None:
+            self.ax_mse.lines.remove(self.plot_mse_val)
+            self.plot_mse_val = None
 
     # This function takes a string and returns the corresponding update function
     def get_update_func(self, update):
@@ -1554,13 +1558,13 @@ class neuralnetplotter(magicplotter):
         kwargs = self.collect_kwargs()
         if self.plot_truth is None:
             self.plot_truth, = self.ax.plot(self.x_truth, self.y_truth, 'k-', label=self.truth_label.format(**kwargs))
-            self.plot_true_loss, = self.ax_mse.plot(np.arange(len(self.rmse_true_ar)) * self.epochs_per_block,
-                                                 self.rmse_true_ar, 'k-', label=self.true_loss_label.format(**kwargs))
+            self.plot_mse_true, = self.ax_mse.plot(np.arange(len(self.mse_true)) * epochs_per_block,
+                                                 self.mse_true, 'k-', label=self.true_loss_label.format(**kwargs))
 
             self.buttons['truth'].label.set_text('Hide truth')
         else:
             self.ax.lines.remove(self.plot_truth)
-            self.ax_mse.lines.remove(self.plot_true_loss)
+            self.ax_mse.lines.remove(self.plot_mse_true)
             self.plot_truth = None
             self.buttons['truth'].label.set_text('Show truth')
 
@@ -1634,7 +1638,12 @@ class neuralnetplotter(magicplotter):
         self.fig.canvas.draw_idle()
 
         # After updating the data, the prediction should be updated as well
-        self.update_pred(event)
+        # self.update_pred(event)
+
+    def get_epochs_per_block(self):
+        kwargs = self.collect_kwargs()
+        return int(round(kwargs['epochs'] / kwargs['epoch_blocks'], 0))
+
 
 def draw_neural_net(ax, left, right, bottom, top, layer_sizes):
     '''
