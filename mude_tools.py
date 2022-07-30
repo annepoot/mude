@@ -102,19 +102,22 @@ class magicplotter:
             'index':1,
             'hovercolor':'0.975',
             'label':'Hide truth',
-            'update':'truth'
+            'update':'truth',
+            'position':0
         },
         'seed':{
             'index':2,
             'hovercolor':'0.975',
             'label':'New seed',
-            'update':'seed'
+            'update':'seed',
+            'position':1
         },
         'reset':{
             'index':3,
             'hovercolor':'0.975',
             'label':'Reset',
-            'update':'reset'
+            'update':'reset',
+            'position':2
         }
     }
 
@@ -133,7 +136,9 @@ class magicplotter:
 
         # Create an empty dictionary, which will later store all slider values
         self.sliders = {}
+        self.sliders_right = {}
         self.buttons = {}
+        self.button_positions = {}
 
         # Store the additional settings
         self.settings = settings
@@ -417,6 +422,9 @@ class magicplotter:
         label = settings['label'] if 'label' in settings else def_settings['label']
         update = settings['update'] if 'update' in settings else def_settings['update']
 
+        position = settings.get('position', def_settings.get('position', 'left'))
+        valstep = settings.get('valstep', def_settings.get('valstep', None))
+
         # Create the slider
         # Note: it is important that the slider is not created in exactly the same place as before
         # otherwise, matplotlib will reuse the same axis
@@ -428,11 +436,15 @@ class magicplotter:
             valmax=valmax,
             valinit=valinit,
             valfmt=valfmt,
+            valstep=valstep,
             orientation=orientation
         )
 
         # Add the slider to the dictionary that will store the slider values
-        self.sliders[var] = slider
+        if position == 'right':
+            self.sliders_right[var] = slider
+        else:
+            self.sliders[var] = slider
 
         # Get the correct update function
         update_func = self.get_update_func(update)
@@ -454,6 +466,7 @@ class magicplotter:
         hovercolor = settings['hovercolor'] if 'hovercolor' in settings else def_settings['hovercolor']
         label = settings['label'] if 'label' in settings else def_settings['label']
         update = settings['update'] if 'update' in settings else def_settings['update']
+        position = settings['position'] if 'position' in settings else def_settings['position']
 
         # Create the button
         # Note: it is important that the button is not created in exactly the same place as before
@@ -467,6 +480,7 @@ class magicplotter:
 
         # Add the slider to the dictionary that will store the slider values
         self.buttons[var] = button
+        self.button_positions[var] = position
 
         # Get the correct update function
         update_func = self.get_update_func(update)
@@ -542,24 +556,31 @@ class magicplotter:
             self.add_button(var, **settings)
 
     # Adjust the plot to make room for the sliders
-    def adjust_plot(self):
+    def adjust_plot(self, **settings):
 
         r = self.r
-        slider_thick = 0.03
-        hor_slider_space = 0.02
-        ver_slider_space = 0.07
-        hor_label_space = 0.10
-        ver_label_space = 0.12
-        button_thick = 0.04
-        button_length = 0.15
-        sidebar_width = 0.1
+        slider_thick = settings.get('slider_thick', 0.03)
+        hor_slider_space = settings.get('hor_slider_space', 0.02)
+        ver_slider_space = settings.get('ver_slider_space', 0.07)
+        hor_slider_shrink = settings.get('hor_slider_shrink', 0.00)
+        hor_label_space = settings.get('hor_label_space', 0.10)
+        ver_label_space = settings.get('ver_label_space', 0.12)
+        button_thick = settings.get('button_thick', 0.04)
+        button_length = settings.get('button_length', 0.15)
+        sidebar_width = settings.get('sidebar_width', 0.1)
+
 
         hor_sliders = [slider for slider in self.sliders.values() if slider.orientation=='horizontal']
+        hor_sliders_right = [slider for slider in self.sliders_right.values()]
         ver_sliders = [slider for slider in self.sliders.values() if slider.orientation=='vertical']
 
         # Get all the sizes of the main plot
         bottom = max(hor_label_space + (hor_slider_space + slider_thick) * len(hor_sliders) + (hor_slider_space + button_thick) * (len(self.buttons) > 0) + (hor_slider_space + button_thick) * (len(self.buttons) > 3), 0.1)
+        if 'bottom' in settings:
+            bottom = settings['bottom']
         left = max(ver_label_space + (ver_slider_space + slider_thick) * len(ver_sliders), 0.2)
+        if 'left' in settings:
+            left = settings['left']
         top = 0.1
         right = 0.1 + (sidebar_width + ver_slider_space) * (not self.ax_mse is None)
         height = 1 - top - bottom
@@ -573,9 +594,19 @@ class magicplotter:
 
             # Set the position of the slider
             slider.ax.set_position(
-                [left,
+                [left+hor_slider_shrink/2,
                  bottom - hor_label_space - slider_thick - (hor_slider_space + slider_thick) * i,
-                 width,
+                 width-hor_slider_shrink,
+                 slider_thick])
+
+        # Set the position of the horizontal sliders one by one
+        for i, slider in enumerate(hor_sliders_right):
+
+            # Set the position of the slider
+            slider.ax.set_position(
+                [1 - right + ver_slider_space,
+                 bottom - hor_label_space - slider_thick - (hor_slider_space + slider_thick) * i,
+                 sidebar_width,
                  slider_thick])
 
         # Set the position of the vertical sliders one by one
@@ -595,19 +626,8 @@ class magicplotter:
         # Set the position of the buttons one by one
         for val, button in self.buttons.items():
 
-            # Find the left side of the button
-            if val == 'truth':
-                i = 0
-            elif val == 'seed':
-                i = 1
-            elif val == 'reset':
-                i = 2
-            elif val == 'D_small':
-                i = 3
-            elif val == 'D_medium':
-                i = 4
-            elif val == 'D_large':
-                i = 5
+            # Get the position of the button
+            i = self.button_positions[val]
 
             # Set the position of the button
             button.ax.set_position(
@@ -748,19 +768,22 @@ class biasvarianceplotter(magicplotter):
             'index':4,
             'hovercolor':'0.975',
             'label':'{} datasets'.format(D_small),
-            'update':'datasets_small'
+            'update':'datasets_small',
+            'position':3
         },
         'D_medium':{
             'index':5,
             'hovercolor':'0.975',
             'label':'{} datasets'.format(D_medium),
-            'update':'datasets_medium'
+            'update':'datasets_medium',
+            'position':4
         },
         'D_large':{
             'index':6,
             'hovercolor':'0.975',
             'label':'{} datasets'.format(D_large),
-            'update':'datasets_large'
+            'update':'datasets_large',
+            'position':5
         }
     }
 
@@ -940,7 +963,6 @@ class neuralnetplotter(magicplotter):
             'orientation': 'horizontal',
             'label': r'Neurons / layer',
             'update': 'change_neurons',
-            'position': 'Left'
         },
         'epochs': {
             'valmin': 1000,
@@ -950,7 +972,6 @@ class neuralnetplotter(magicplotter):
             'orientation': 'horizontal',
             'label': r'Training epochs',
             'update': 'passive',
-            'position': 'Left',
             'valstep': np.arange(1000, 10050, 50)
         },
         'epoch_blocks': {
@@ -963,9 +984,8 @@ class neuralnetplotter(magicplotter):
             'valfmt': '%0.0f',
             'orientation': 'horizontal',
             'label': 'Selected model',
-            'update': 'change model',
-            'position': 'Right'
-            # 'valstep': np.concatenate([[1], np.arange(10, 810, 10)])
+            'update': 'change_model',
+            'position': 'right'
         },
         'batch_size': {
             'valmin': 1,
@@ -975,13 +995,13 @@ class neuralnetplotter(magicplotter):
             'orientation': 'horizontal',
             'label': r'Samples per batch',
             'update': 'passive',
-            'position': 'Left'
         },
         'rerun': {
             'index': 3,
             'hovercolor': '0.975',
             'label': 'Run',
-            'update': 'train'
+            'update': 'train',
+            'position':3
         },
         'activation': {
             'index': 4,
@@ -1000,38 +1020,29 @@ class neuralnetplotter(magicplotter):
         {
             'valinit': 0.4,
             'orientation': 'horizontal',
-            'position': 'Left'
         })
     defaults['N'].update(
         {
             'valmin': 2,
             'valmax': 200,
             'valinit': 30,
-            'position': 'Left'
         })
     defaults['freq'].update(
         {
             'valmax': 5,
             'valinit': 3.4,
-            'position': 'Left'
         })
     defaults['val_pct'].update(
         {
             'valmax': 60,
             'valinit': 30,
-            'position': 'Left',
             'valstep': np.arange(0, 65, 5)
-        })
-    defaults['reset'].update(
-        {
-            'update': 'passive'
         })
 
     # Create the initial plot
     def __init__(self, f_data, f_truth, f_pred, x_pred=None, x_truth=None, **settings):
 
         # Create an empty dictionary, which will later store all slider values
-        self.sliders_right = {}
         self.radio_buttons = {}
 
         # Data for truth function
@@ -1269,58 +1280,15 @@ class neuralnetplotter(magicplotter):
     # Add a slider below the plot; with minimal spacing
     def add_slider(self, var, **settings):
 
-        # Check if the variable is in defaults
-        def_settings = self.defaults.get(var, {})
-
-        # Load all default/given values*
-        valmin = settings['valmin'] if 'valmin' in settings else def_settings['valmin']
-        valmax = settings['valmax'] if 'valmax' in settings else def_settings['valmax']
-        valinit = settings['valinit'] if 'valinit' in settings else def_settings['valinit']
-        valfmt = settings['valfmt'] if 'valfmt' in settings else def_settings['valfmt']
-        orientation = settings['orientation'] if 'orientation' in settings else def_settings['orientation']
-        label = settings['label'] if 'label' in settings else def_settings['label']
-        update = settings['update'] if 'update' in settings else def_settings['update']
-        position = settings['position'] if 'position' in settings else def_settings['position']
-        if 'valstep' in settings:
-            valstep = settings['valstep']
-        elif 'valstep' in def_settings:
-            valstep = def_settings['valstep']
-        else:
-            valstep = None
-
-        # Create the slider
-        # Note: it is important that the slider is not created in exactly the same place as before
-        # otherwise, matplotlib will reuse the same axis
-        ax_slider = self.fig.add_axes([0.8 + 0.1 * (len(self.sliders) + len(self.sliders_right)), 0.5, 0.1, 0.1])
-        slider = Slider(
-            ax=ax_slider,
-            label=label,
-            valmin=valmin,
-            valmax=valmax,
-            valinit=valinit,
-            valfmt=valfmt,
-            valstep=valstep,
-            orientation=orientation,
-        )
-
-        # Add the slider to the dictionary that will store the slider values
-        if position == 'Left':
-            self.sliders[var] = slider
-        elif position == 'Right':
-            self.sliders_right[var] = slider
-
-        # Get the correct update function
-        update_func = self.get_update_func(update)
-
-        # Add an event to the slider
-        slider.on_changed(update_func)
+        super().add_slider(var, **settings)
 
         # Hide the value of the model selector
-        if update == 'change model':
-            slider.valtext.set_visible(False)
+        if var == 'cur_model':
+            self.sliders_right[var].valtext.set_visible(False)
 
         # Draw image of the neural network if the number of neurons are optional
-        if update == 'change_neurons':
+        if var == 'neurons':
+            valinit = self.sliders[var].valinit
             self.network_ax = self.fig.add_axes([0.72, 0.11, 0.27, 0.27], anchor='SW', zorder=0)
             draw_neural_net(self.network_ax, .1, .9, .1, .9, [1, valinit, valinit, 1])
             self.network_ax.axis('off')
@@ -1413,7 +1381,7 @@ class neuralnetplotter(magicplotter):
             return self.passive
         elif update == 'update_activation':
             return self.update_activation
-        elif update == 'change model':
+        elif update == 'change_model':
             return self.change_model
         elif update == 'train':
             return self.train
@@ -1422,128 +1390,31 @@ class neuralnetplotter(magicplotter):
         else:
             return super().get_update_func(update)
 
-    # # Define a function that changes the seed
-    # def update_seed(self, event):
-    #     self.seed += 1
-    #     self.passive(event)
-
 
     # Adjust the plot to make room for the sliders
     def adjust_plot(self):
 
-        slider_thick = 0.03
-        hor_slider_space = 0.02
-        start_slider_shift = 0.12
-        hor_label_space = 0.10
-        hor_label_space_end = 0.09
-        button_thick = 0.04
-        button_length = 0.1
-        sideplot_fraction = 0.25  # 0.5 = equal: [(1-x), x] * w
-        hor_plot_space = 0.1
+        settings = {
+            'bottom':0.5,
+            'left':0.05,
+            'button_length':0.1,
+            'sidebar_width':0.2,
+            'hor_slider_shrink':0.2,
+            'ver_slider_space':0.1,
+        }
 
-        hor_sliders = [slider for slider in self.sliders.values() if slider.orientation == 'horizontal']
-        hor_sliders_right = [slider for slider in self.sliders_right.values() if slider.orientation == 'horizontal']
-
-        # Even with few sliders, make space for the NN visualization
-        bottom_space_sliders = (hor_slider_space + slider_thick) * max(len(hor_sliders), 7 )
-
-        # Get all the sizes of the main plot
-        bottom = max(hor_label_space + bottom_space_sliders + (
-                    hor_slider_space + button_thick) * (len(self.buttons) > 0) + (hor_slider_space + button_thick) * (
-                                 len(self.buttons) > 3), 0.1)
-        left = 0.04
-        top = 0.1
-        right_space = 0.05
-        height = 1 - top - bottom
-        totwidth = 1 - right_space - left - hor_plot_space
-        mainplot_width = totwidth * (1 - sideplot_fraction)
-        sideplot_width = totwidth * sideplot_fraction
-
-        # Set the size of the main plot
-        self.ax.set_position([left, bottom, mainplot_width, height])
-
-        # Set the position of the sideplot if it exists
-        if not self.ax_mse is None:
-            # Change the size of the main figure
-            self.fig.set_figwidth(self.w + hor_plot_space + sideplot_width + 1.0)
-
-            # Set the position of the sideplot
-            self.ax_mse.set_position(
-                # [1 - right + ver_slider_space,
-                [1 - right_space - sideplot_width,
-                 bottom,
-                 sideplot_width,
-                 height])
-
-        # Set the position of the horizontal sliders one by one
-        for i, slider in enumerate(hor_sliders):
-            slider.ax.set_position(
-                [left + start_slider_shift,
-                 bottom - hor_label_space - slider_thick - (hor_slider_space + slider_thick) * i,
-                 mainplot_width - start_slider_shift - hor_label_space_end,
-                 slider_thick])
-        # Set the position of the horizontal sliders on the right
-        for i, slider in enumerate(hor_sliders_right):
-            slider.ax.set_position(
-                [1 - right_space - sideplot_width,
-                 bottom - hor_label_space - slider_thick - (hor_slider_space + slider_thick) * i,
-                 sideplot_width,
-                 slider_thick])
-
-        # Calculate the spacing needed for 3 buttons
-        n_button = 3
-        button_space = (mainplot_width - n_button * button_length) / (n_button - 1)
-
-        # Set the position of the buttons one by one
-        for val, button in self.buttons.items():
-
-            # Find the left side of the button
-            if val == 'truth':
-                i = 1
-            elif val == 'seed':
-                i = 2
-            elif val == 'rerun':
-                i = 0
-            # Set the position of the button
-            button.ax.set_position(
-                [left + (button_space + button_length) * (i % n_button),
-                 bottom - hor_label_space - bottom_space_sliders - (
-                             hor_slider_space + button_thick) * (i // 3) - button_thick,
-                 button_length,
-                 button_thick])
+        super().adjust_plot(**settings)
 
         # Set the position of the radiobuttons one by one
-        tot_height = 0
         for val, radiobutton in self.radio_buttons.items():
             # Get automatic size of button
             ll, bb, ww, hh = radiobutton.ax.get_position().bounds
-            posy = bottom - hor_label_space - bottom_space_sliders - button_thick + tot_height  # Adjust starting height height
-
-            if val == 'activation':
-                i = 0
 
             radiobutton.ax.set_position(
-                # [1 - right + ver_slider_space,  # posx
-                [1 - right_space - sideplot_width + (button_space + button_length) * (i % n_button),  # posx
-                 posy,  # posy
+                [self.network_ax.get_position().bounds[0],  # posx
+                 0.01,  # posy
                  ww,  # width
                  hh])  # height
-            tot_height += hh
-
-        # Set the limits of the main plot x-axis based on the observed data
-        xmax = max(self.x_data)
-        xmin = min(self.x_data)
-        xdif = xmax - xmin
-        self.ax.set_xbound((xmin - 0.1 * xdif, xmax + 0.1 * xdif))
-
-        # Set the limits of the main plot y-axis based on the observed data
-        ymax = max(self.y_data)
-        ymin = min(self.y_data)
-        ydif = ymax - ymin
-        self.ax.set_ybound((ymin - 0.1 * ydif, ymax + 0.1 * ydif))
-
-        # Disable autoscaling, to make sure the limits remain enforced
-        plt.autoscale(False)
 
 
     # Define a function that collects all key word arguments
@@ -1610,6 +1481,7 @@ class neuralnetplotter(magicplotter):
 
     def update_pred(self, event):
         pass
+
 
     def get_epochs_per_block(self):
         kwargs = self.collect_kwargs()
