@@ -983,7 +983,7 @@ class neuralnetplotter(magicplotter):
             'valinit': 200,
             'valfmt': '%0.0f',
             'orientation': 'horizontal',
-            'label': 'Selected model',
+            'label': 'Selected\nmodel',
             'update': 'change_model',
             'position': 'right'
         },
@@ -1047,7 +1047,6 @@ class neuralnetplotter(magicplotter):
 
         # Data for truth function
         self.x_dense = np.linspace(0, 2 * np.pi, 1500)
-        # self.y_dense = f_truth(self.x_dense, **kwargs) + np.random.normal(0, kwargs['epsilon'], len(self.x_dense))
 
         # Perform the initialization of the magiplotter stuff first
         # This also redirects to the update_pred function
@@ -1056,52 +1055,11 @@ class neuralnetplotter(magicplotter):
         # Hide the legend
         self.hide_legend = True
 
-        # Get additional settings like the original plot title and labels
-        # self.vline_label = settings.get('vline_label', 'Selected model')
-        self.train_loss_label = settings.get('tr_label', 'Training error')
-        self.val_loss_label = settings.get('val_label', 'Validation error')
-        self.true_loss_label = settings.get('true_label', 'True error')
-
-        # self.fig = plt.figure(figsize=(self.w, self.h))
-        # self.ax = self.fig.add_subplot(121)
-        # self.ax.set_title(self.title)
-        # self.ax.set_xlabel('x')
-        # self.ax.set_ylabel('t')
-
-        # self.ax_mse = self.fig.add_subplot(122)
-        # self.ax_mse.set_xlim(0, 10000)
-        # self.ax_mse.set_ylim(0, 4)
-        # self.ax_mse.set_xlabel('Epochs')
-        # self.ax_mse.set_ylabel('RMSE')
-
-        self.mse_train = 0
-        self.mse_validation = 0
-        self.mse_true = []
-
+        # Add the MSE plot to the side
         self.add_sidebar()
-        # self.ax_mse.set_xlim(0, 10000)
-        # self.ax_mse.set_ylim(0, 4)
-        # self.ax_mse.set_xlabel('Epochs')
-        # self.ax_mse.set_ylabel('RMSE')
 
-        # Collect all key word arguments
-        kwargs = self.collect_kwargs()
-
-        # # Add the truth, data and prediction
-        # self.plot_truth, = self.ax.plot(self.x_truth, self.y_truth, 'k-', label=self.truth_label.format(**kwargs))
-        # self.plot_data, = self.ax.plot(self.x_train, self.y_train, 'x', label=self.data_label.format(**kwargs))
-        # self.plot_pred, = self.ax.plot([], [], '-', label=self.pred_label.format(**kwargs))
-        # self.plot_mse_train, = self.ax_mse.plot([], [], '-', label=self.train_loss_label.format(**kwargs))
-        self.plot_mse_true, = self.ax_mse.plot([], [], 'k-', label=self.true_loss_label.format(**kwargs))
-        # self.plot_mse_val, = self.ax_mse.plot([], [], '-', color='purple', label=self.val_loss_label.format(**kwargs))
-
-        self.plot_cur_epoch = self.ax_mse.axvline(kwargs['epochs'], 0, 1, linestyle='--', color='green')
+        # Initialize the network (to ensure the variable exists)
         self.network = None
-
-        # # Initialize the validation set, probe, probe set and sidebar (to ensure they exist)
-        # self.plot_val = None
-        # self.plot_probe = None
-        # self.plot_neighbors = None
 
         # Draw image of the activation function
         self.activation_ax = self.fig.add_axes([0.85, 0.02, 0.10, 0.10], anchor='SW', zorder=1)
@@ -1109,11 +1067,6 @@ class neuralnetplotter(magicplotter):
         self.activation_ax.set_ylim(-2, 2)
         self.plot_act, = self.activation_ax.plot([], [])
         self.activation_ax.axis('off')
-
-        # # Call the show function
-        # # This also redirects to the update_data function
-        # self.shown = False
-        # self.show()
 
     # When a slider is changed, don't do anything except changing the 'Run' button appearance
     def passive(self, event):
@@ -1236,15 +1189,6 @@ class neuralnetplotter(magicplotter):
             self.buttons['rerun'].label.set_text('Running')
             self.buttons['rerun'].hovercolor = 'green'
 
-        # # Create initial network
-        # self.network = self.f_create(**kwargs)
-
-        # epochs = kwargs['epochs']
-        # # A block here is multiple epochs with a single validation update
-        # epoch_blocks = 200   #  Matches number of 'selected models'
-        # self.epochs_per_block = int(round(epochs / epoch_blocks, 0)) # This can give a mismatch between shown and selected model
-        # kwargs['epochs_per_block'] = self.epochs_per_block
-
         # Set limit of loss function plot
         self.ax_mse.set_xbound((0, kwargs['epochs']))
         # Set 'selected model' to end
@@ -1346,34 +1290,40 @@ class neuralnetplotter(magicplotter):
     # Add the mse sidebar to the right side of the plot
     def add_sidebar(self):
 
+        # Set initial values to ensure super().add_sidebar() doesn't crash
+        self.mse_train = 0
+        self.mse_validation = 0
+        self.mse_true = []
+
         super().add_sidebar()
+
+        kwargs = self.collect_kwargs()
+
+        # Add the true loss and current epoch to the sidebar
+        self.plot_mse_true, = self.ax_mse.plot([], [], 'k-', label='True error')
+        self.plot_cur_epoch = self.ax_mse.axvline(kwargs['epochs'], 0, 1, linestyle='--', color='green')
 
         # Set the layout of the sidebar
         self.ax_mse.yaxis.grid()
-        self.ax_mse.set_xlim(0, 10000)
+        self.ax_mse.set_xlim(0, kwargs['epochs'])
         self.ax_mse.set_ylim(0, 4)
         ticks = [0, 2500, 5000, 7500, 10000]
         self.ax_mse.set_xticks(ticks)
         self.ax_mse.set_xticklabels(ticks, rotation=0)
         self.ax_mse.set_xlabel('Epochs')
         self.ax_mse.set_ylabel('RMSE')
+        self.ax_mse.autoscale(False)
 
         # Remove the existing training and validation loss
         if self.plot_mse_train is not None:
             self.plot_mse_train.set_linestyle('-')
             self.plot_mse_train.set_marker(None)
             self.plot_mse_train.set_data([], [])
-            # self.ax_mse.lines.remove(self.plot_mse_train)
-            # self.plot_mse_train = None
 
         if self.plot_mse_val is not None:
             self.plot_mse_val.set_linestyle('-')
             self.plot_mse_val.set_marker(None)
             self.plot_mse_val.set_data([], [])
-            # self.ax_mse.lines.remove(self.plot_mse_val)
-            # self.plot_mse_val = None
-
-        # self.plot_mse_true, = self.ax_mse.plot([], [], 'k-', label=self.true_loss_label.format(**kwargs))
 
     # This function takes a string and returns the corresponding update function
     def get_update_func(self, update):
