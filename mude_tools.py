@@ -373,6 +373,9 @@ class magicplotter:
         else:
             self.ax.legend(loc='lower left')
 
+        # Allow for automatic updating of the plot
+        self.fig.canvas.draw_idle()
+
 
     # Define a function that changes the seed
     def update_seed(self, event):
@@ -997,12 +1000,6 @@ class neuralnetplotter(magicplotter):
         {
             'valinit': 0.4,
             'orientation': 'horizontal',
-            'update': 'passive',
-            'position': 'Left'
-        })
-    defaults['k'].update(
-        {
-            'update': 'passive',
             'position': 'Left'
         })
     defaults['N'].update(
@@ -1010,21 +1007,18 @@ class neuralnetplotter(magicplotter):
             'valmin': 2,
             'valmax': 200,
             'valinit': 30,
-            'update': 'passive',
             'position': 'Left'
         })
     defaults['freq'].update(
         {
             'valmax': 5,
             'valinit': 3.4,
-            'update': 'passive',
             'position': 'Left'
         })
     defaults['val_pct'].update(
         {
             'valmax': 60,
             'valinit': 30,
-            'update': 'passive',
             'position': 'Left',
             'valstep': np.arange(0, 65, 5)
         })
@@ -1047,6 +1041,9 @@ class neuralnetplotter(magicplotter):
         # Perform the initialization of the magiplotter stuff first
         # This also redirects to the update_pred function
         super().__init__(f_data, f_truth, f_pred, x_pred, x_truth, **settings)
+
+        # Hide the legend
+        self.hide_legend = True
 
         # Get additional settings like the original plot title and labels
         # self.vline_label = settings.get('vline_label', 'Selected model')
@@ -1109,9 +1106,19 @@ class neuralnetplotter(magicplotter):
 
     # When a slider is changed, don't do anything except changing the 'Run' button appearance
     def passive(self, event):
-        self.buttons['rerun'].color = 'red'
-        self.buttons['rerun'].label.set_text('Re-run')
-        self.buttons['rerun'].hovercolor = 'green'
+
+        if 'rerun' in self.buttons:
+            if self.plot_pred is None:
+                firstrun = True
+            elif len(self.plot_pred.get_data()[0]) == 0:
+                firstrun = True
+            else:
+                firstrun = False
+
+            if not firstrun:
+                self.buttons['rerun'].color = 'red'
+                self.buttons['rerun'].label.set_text('Re-run')
+                self.buttons['rerun'].hovercolor = 'green'
 
     # Function to change the image & buttons when the number of neurons in the model changes
     def change_neurons(self, event):
@@ -1213,9 +1220,10 @@ class neuralnetplotter(magicplotter):
         self.network = None
 
         # Change colors of the Rerun button while training
-        self.buttons['rerun'].color = 'green'
-        self.buttons['rerun'].label.set_text('Running')
-        self.buttons['rerun'].hovercolor = 'green'
+        if 'rerun' in self.buttons:
+            self.buttons['rerun'].color = 'green'
+            self.buttons['rerun'].label.set_text('Running')
+            self.buttons['rerun'].hovercolor = 'green'
 
         # # Create initial network
         # self.network = self.f_create(**kwargs)
@@ -1246,9 +1254,10 @@ class neuralnetplotter(magicplotter):
         self.trainloop(**kwargs)
 
         # Change colors of the Rerun button back
-        self.buttons['rerun'].color = 'gray'
-        self.buttons['rerun'].label.set_text('Finished')
-        self.buttons['rerun'].hovercolor = 'gray'
+        if 'rerun' in self.buttons:
+            self.buttons['rerun'].color = 'gray'
+            self.buttons['rerun'].label.set_text('Finished')
+            self.buttons['rerun'].hovercolor = 'gray'
 
         self.fig.canvas.draw_idle()
 
@@ -1375,7 +1384,9 @@ class neuralnetplotter(magicplotter):
         self.ax_mse.yaxis.grid()
         self.ax_mse.set_xlim(0, 10000)
         self.ax_mse.set_ylim(0, 4)
-        self.ax_mse.set_xticks([])
+        ticks = [0, 2500, 5000, 7500, 10000]
+        self.ax_mse.set_xticks(ticks)
+        self.ax_mse.set_xticklabels(ticks, rotation=0)
         self.ax_mse.set_xlabel('Epochs')
         self.ax_mse.set_ylabel('RMSE')
 
@@ -1400,27 +1411,22 @@ class neuralnetplotter(magicplotter):
     def get_update_func(self, update):
         if update == 'passive':
             return self.passive
-        if update == 'update_activation':
+        elif update == 'update_activation':
             return self.update_activation
-        if update == 'change model':
+        elif update == 'change model':
             return self.change_model
         elif update == 'train':
             return self.train
         elif update == 'change_neurons':
             return self.change_neurons
-        elif update == 'seed':
-            return self.update_seed
-        elif update == 'reset':
-            return self.reset_all
-        elif update == 'truth':
-            return self.toggle_truth
-        elif update == 'probe':
-            return self.update_probe
+        else:
+            return super().get_update_func(update)
 
     # # Define a function that changes the seed
     # def update_seed(self, event):
     #     self.seed += 1
     #     self.passive(event)
+
 
     # Adjust the plot to make room for the sliders
     def adjust_plot(self):
@@ -1539,6 +1545,7 @@ class neuralnetplotter(magicplotter):
         # Disable autoscaling, to make sure the limits remain enforced
         plt.autoscale(False)
 
+
     # Define a function that collects all key word arguments
     def collect_kwargs(self):
 
@@ -1559,6 +1566,7 @@ class neuralnetplotter(magicplotter):
             kwargs[val] = radiobutton.value_selected
 
         return kwargs
+
 
     # Define the function that will be called when the hide/show truth button is called
     def toggle_truth(self, event):
@@ -1582,6 +1590,10 @@ class neuralnetplotter(magicplotter):
         # Disable autoscaling, to make sure the limits remain enforced
         plt.autoscale(False)
 
+        # Allow for automatic updating of the plot
+        self.fig.canvas.draw_idle()
+
+
     def update_data(self, event):
 
         # Go through all sliders in the dictionary, and store their values in a kwargs dict
@@ -1591,6 +1603,10 @@ class neuralnetplotter(magicplotter):
         self.y_dense = self.f_truth(self.x_dense, **kwargs) + np.random.normal(0, kwargs['epsilon'], len(self.x_dense))
 
         super().update_data(event)
+
+        # Change the color of the rerun button
+        self.passive(event)
+
 
     def update_pred(self, event):
         pass
