@@ -148,9 +148,9 @@ class magicplotter:
         self.x_data, self.y_data = self.f_data(**kwargs)
         self.x_train, self.y_train = self.x_data, self.y_data
         self.x_pred = self.x_data if x_pred is None else x_pred
-        self.y_pred = self.f_pred(self.x_train, self.y_train, self.x_pred, **kwargs)
+        # self.y_pred = self.f_pred(self.x_train, self.y_train, self.x_pred, **kwargs)
         self.x_truth = self.x_pred if x_truth is None else x_truth
-        self.y_truth = self.f_truth(self.x_truth, **kwargs)
+        # self.y_truth = self.f_truth(self.x_truth, **kwargs)
 
         # Get additional settings like the original plot title and labels
         self.title = settings.get('title', None)
@@ -169,9 +169,9 @@ class magicplotter:
             self.fig, self.ax = plt.subplots(figsize=(self.w,self.h))
 
         # Add the truth, data and prediction
-        self.plot_truth, = self.ax.plot(self.x_truth, self.y_truth, 'k-', label=self.truth_label.format(**kwargs))
-        self.plot_data, = self.ax.plot(self.x_train, self.y_train, 'x', label=self.data_label.format(**kwargs))
-        self.plot_pred, = self.ax.plot(self.x_pred, self.y_pred, '-', label=self.pred_label.format(**kwargs))
+        self.plot_truth, = self.ax.plot([], [], 'k-', label=self.truth_label.format(**kwargs))
+        self.plot_data, = self.ax.plot([], [], 'x', label=self.data_label.format(**kwargs))
+        self.plot_pred, = self.ax.plot([], [], '-', label=self.pred_label.format(**kwargs))
 
         # Initialize the validation set, probe, probe set and sidebar (to ensure they exist)
         self.plot_val = None
@@ -1068,6 +1068,7 @@ class neuralnetplotter(magicplotter):
 
         self.mse_train = 0
         self.mse_validation = 0
+        self.mse_true = []
 
         self.add_sidebar()
         # self.ax_mse.set_xlim(0, 10000)
@@ -1168,11 +1169,6 @@ class neuralnetplotter(magicplotter):
 
         # Loop over epoch nums. A block here contains multiple epochs
         for i in range(kwargs['epoch_blocks']):
-
-            if self.network is None:
-                print('self.network is None')
-            else:
-                print('neurons: ' + str(self.network.hidden_layer_sizes))
 
             # Train for a fixed number of epochs
             self.y_pred, self.network, mse_train_ar = self.f_pred(self.x_train, self.y_train, self.x_pred, network=self.network,
@@ -1421,10 +1417,10 @@ class neuralnetplotter(magicplotter):
         elif update == 'probe':
             return self.update_probe
 
-    # Define a function that changes the seed
-    def update_seed(self, event):
-        self.seed += 1
-        self.passive(event)
+    # # Define a function that changes the seed
+    # def update_seed(self, event):
+    #     self.seed += 1
+    #     self.passive(event)
 
     # Adjust the plot to make room for the sliders
     def adjust_plot(self):
