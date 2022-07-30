@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button, RadioButtons
 from sklearn.utils import shuffle
+from copy import deepcopy
 
 class magicplotter:
 
@@ -753,46 +754,51 @@ class biasvarianceplotter(magicplotter):
     D_medium = 30
     D_large = 100
 
-    # Define the default settings for all sliders
-    defaults = {
-        'D':{
-            'valmin':1,
-            'valmax':100,
-            'valinit':25,
-            'valfmt':'%0.0f',
-            'orientation':'horizontal',
-            'label':r'# of datasets ($D$)',
-            'update':'pred'
-        },
-        'D_small':{
-            'index':4,
-            'hovercolor':'0.975',
-            'label':'{} datasets'.format(D_small),
-            'update':'datasets_small',
-            'position':3
-        },
-        'D_medium':{
-            'index':5,
-            'hovercolor':'0.975',
-            'label':'{} datasets'.format(D_medium),
-            'update':'datasets_medium',
-            'position':4
-        },
-        'D_large':{
-            'index':6,
-            'hovercolor':'0.975',
-            'label':'{} datasets'.format(D_large),
-            'update':'datasets_large',
-            'position':5
-        }
-    }
+    def init_defaults(self):
 
-    # Add the defaults settings for the sliders from the magicplotter
-    defaults.update(magicplotter.defaults)
+        # Define the default settings for all sliders
+        self.defaults = {
+            'D':{
+                'valmin':1,
+                'valmax':100,
+                'valinit':25,
+                'valfmt':'%0.0f',
+                'orientation':'horizontal',
+                'label':r'# of datasets ($D$)',
+                'update':'pred'
+            },
+            'D_small':{
+                'index':4,
+                'hovercolor':'0.975',
+                'label':'{} datasets'.format(self.D_small),
+                'update':'datasets_small',
+                'position':3
+            },
+            'D_medium':{
+                'index':5,
+                'hovercolor':'0.975',
+                'label':'{} datasets'.format(self.D_medium),
+                'update':'datasets_medium',
+                'position':4
+            },
+            'D_large':{
+                'index':6,
+                'hovercolor':'0.975',
+                'label':'{} datasets'.format(self.D_large),
+                'update':'datasets_large',
+                'position':5
+            }
+        }
+
+        # Add the defaults settings for the sliders from the magicplotter
+        self.defaults.update(magicplotter.defaults)
 
 
     # Create the initial plot
     def __init__(self, f_data, f_truth, f_pred, x_pred = None, x_truth = None, **settings):
+
+        # Initialize the defaults
+        self.init_defaults()
 
         # Get additional settings like the original labels
         self.title = settings.get('title', r'Bias and variance computed over {D} datasets')
@@ -953,94 +959,99 @@ class biasvarianceplotter(magicplotter):
 
 class neuralnetplotter(magicplotter):
 
-    # Define the default settings for all sliders
-    defaults = {
-        'neurons': {
-            'valmin': 1,
-            'valmax': 35,
-            'valinit': 20,
-            'valfmt': '%0.0f',
-            'orientation': 'horizontal',
-            'label': r'Neurons / layer',
-            'update': 'change_neurons',
-        },
-        'epochs': {
-            'valmin': 1000,
-            'valmax': 10000,
-            'valinit': 10000,
-            'valfmt': '%0.0f',
-            'orientation': 'horizontal',
-            'label': r'Training epochs',
-            'update': 'passive',
-            'valstep': np.arange(1000, 10050, 50)
-        },
-        'epoch_blocks': {
-            'valinit': 200
-        },
-        'cur_model': {
-            'valmin': 1,
-            'valmax': 200,
-            'valinit': 200,
-            'valfmt': '%0.0f',
-            'orientation': 'horizontal',
-            'label': 'Selected\nmodel',
-            'update': 'change_model',
-            'position': 'right'
-        },
-        'batch_size': {
-            'valmin': 1,
-            'valmax': 100,
-            'valinit': 5,
-            'valfmt': '%0.0f',
-            'orientation': 'horizontal',
-            'label': r'Samples per batch',
-            'update': 'passive',
-        },
-        'rerun': {
-            'index': 3,
-            'hovercolor': '0.975',
-            'label': 'Run',
-            'update': 'train',
-            'position':3
-        },
-        'activation': {
-            'index': 4,
-            'active': 2,
-            'activecolor': 'black',
-            'valinit': 'tanh',
-            'labels': ['identity', 'relu', 'tanh'],
-            'update': 'update_activation'
-        },
-    }
+    def init_defaults(self):
 
-    defaults.update(magicplotter.defaults)
+        # Define the default settings for all sliders
+        self.defaults = {
+            'neurons': {
+                'valmin': 1,
+                'valmax': 35,
+                'valinit': 20,
+                'valfmt': '%0.0f',
+                'orientation': 'horizontal',
+                'label': r'Neurons / layer',
+                'update': 'change_neurons',
+            },
+            'epochs': {
+                'valmin': 1000,
+                'valmax': 10000,
+                'valinit': 10000,
+                'valfmt': '%0.0f',
+                'orientation': 'horizontal',
+                'label': r'Training epochs',
+                'update': 'passive',
+                'valstep': np.arange(1000, 10050, 50)
+            },
+            'epoch_blocks': {
+                'valinit': 200
+            },
+            'cur_model': {
+                'valmin': 1,
+                'valmax': 200,
+                'valinit': 200,
+                'valfmt': '%0.0f',
+                'orientation': 'horizontal',
+                'label': 'Selected\nmodel',
+                'update': 'change_model',
+                'position': 'right'
+            },
+            'batch_size': {
+                'valmin': 1,
+                'valmax': 100,
+                'valinit': 5,
+                'valfmt': '%0.0f',
+                'orientation': 'horizontal',
+                'label': r'Samples per batch',
+                'update': 'passive',
+            },
+            'rerun': {
+                'index': 3,
+                'hovercolor': '0.975',
+                'label': 'Run',
+                'update': 'train',
+                'position':3
+            },
+            'activation': {
+                'index': 4,
+                'active': 2,
+                'activecolor': 'black',
+                'valinit': 'tanh',
+                'labels': ['identity', 'relu', 'tanh'],
+                'update': 'update_activation'
+            },
+        }
 
-    # Modify the preexisting defaults appropriately
-    defaults['epsilon'].update(
-        {
-            'valinit': 0.4,
-            'orientation': 'horizontal',
-        })
-    defaults['N'].update(
-        {
-            'valmin': 2,
-            'valmax': 200,
-            'valinit': 30,
-        })
-    defaults['freq'].update(
-        {
-            'valmax': 5,
-            'valinit': 3.4,
-        })
-    defaults['val_pct'].update(
-        {
-            'valmax': 60,
-            'valinit': 30,
-            'valstep': np.arange(0, 65, 5)
-        })
+        self.defaults.update(magicplotter.defaults)
+
+        # Modify the preexisting defaults appropriately
+        self.defaults['epsilon'].update(
+            {
+                'valinit': 0.4,
+                'orientation': 'horizontal',
+            })
+        self.defaults['N'].update(
+            {
+                'valmin': 2,
+                'valmax': 200,
+                'valinit': 60,
+            })
+        self.defaults['freq'].update(
+            {
+                'valmax': 5,
+                'valinit': 3.4,
+            })
+        self.defaults['val_pct'].update(
+            {
+                'valmax': 60,
+                'valinit': 30,
+                'valstep': np.arange(0, 65, 5)
+            })
 
     # Create the initial plot
     def __init__(self, f_data, f_truth, f_pred, x_pred=None, x_truth=None, **settings):
+
+        # Initialize the defaults
+        self.init_defaults()
 
         # Create an empty dictionary, which will later store all slider values
         self.radio_buttons = {}
