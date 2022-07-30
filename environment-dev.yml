@@ -9,5 +9,9 @@ dependencies:
   - jupyterlab_vim=0.15.1
   - matplotlib=3.5.2
   - numpy=1.22.3
+  - pip
   - scikit-learn=1.0.2
   - spyder=5.2.2
+  - pip:
+    - nbdime
+    - nbmerge
