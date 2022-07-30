@@ -1082,9 +1082,9 @@ class neuralnetplotter(magicplotter):
         # self.plot_truth, = self.ax.plot(self.x_truth, self.y_truth, 'k-', label=self.truth_label.format(**kwargs))
         # self.plot_data, = self.ax.plot(self.x_train, self.y_train, 'x', label=self.data_label.format(**kwargs))
         # self.plot_pred, = self.ax.plot([], [], '-', label=self.pred_label.format(**kwargs))
-        self.plot_mse_train, = self.ax_mse.plot([], [], '-', label=self.train_loss_label.format(**kwargs))
+        # self.plot_mse_train, = self.ax_mse.plot([], [], '-', label=self.train_loss_label.format(**kwargs))
         self.plot_mse_true, = self.ax_mse.plot([], [], 'k-', label=self.true_loss_label.format(**kwargs))
-        self.plot_mse_val, = self.ax_mse.plot([], [], '-', color='purple', label=self.val_loss_label.format(**kwargs))
+        # self.plot_mse_val, = self.ax_mse.plot([], [], '-', color='purple', label=self.val_loss_label.format(**kwargs))
 
         self.plot_cur_epoch = self.ax_mse.axvline(kwargs['epochs'], 0, 1, linestyle='--', color='green')
         self.network = None
@@ -1168,6 +1168,11 @@ class neuralnetplotter(magicplotter):
 
         # Loop over epoch nums. A block here contains multiple epochs
         for i in range(kwargs['epoch_blocks']):
+
+            if self.network is None:
+                print('self.network is None')
+            else:
+                print('neurons: ' + str(self.network.hidden_layer_sizes))
 
             # Train for a fixed number of epochs
             self.y_pred, self.network, mse_train_ar = self.f_pred(self.x_train, self.y_train, self.x_pred, network=self.network,
@@ -1380,12 +1385,20 @@ class neuralnetplotter(magicplotter):
 
         # Remove the existing training and validation loss
         if self.plot_mse_train is not None:
-            self.ax_mse.lines.remove(self.plot_mse_train)
-            self.plot_mse_train = None
+            self.plot_mse_train.set_linestyle('-')
+            self.plot_mse_train.set_marker(None)
+            self.plot_mse_train.set_data([], [])
+            # self.ax_mse.lines.remove(self.plot_mse_train)
+            # self.plot_mse_train = None
 
         if self.plot_mse_val is not None:
-            self.ax_mse.lines.remove(self.plot_mse_val)
-            self.plot_mse_val = None
+            self.plot_mse_val.set_linestyle('-')
+            self.plot_mse_val.set_marker(None)
+            self.plot_mse_val.set_data([], [])
+            # self.ax_mse.lines.remove(self.plot_mse_val)
+            # self.plot_mse_val = None
+
+        # self.plot_mse_true, = self.ax_mse.plot([], [], 'k-', label=self.true_loss_label.format(**kwargs))
 
     # This function takes a string and returns the corresponding update function
     def get_update_func(self, update):
@@ -1553,26 +1566,23 @@ class neuralnetplotter(magicplotter):
 
     # Define the function that will be called when the hide/show truth button is called
     def toggle_truth(self, event):
-        kwargs = self.collect_kwargs()
-        if self.plot_truth is None:
-            self.plot_truth, = self.ax.plot(self.x_truth, self.y_truth, 'k-', label=self.truth_label.format(**kwargs))
-            self.plot_mse_true, = self.ax_mse.plot(np.arange(len(self.mse_true)) * epochs_per_block,
-                                                 self.mse_true, 'k-', label=self.true_loss_label.format(**kwargs))
 
-            self.buttons['truth'].label.set_text('Hide truth')
-        else:
-            self.ax.lines.remove(self.plot_truth)
+        # Show or hide the truth in the main plot
+        super().toggle_truth(event)
+
+        # Show or hide the truth in the mse plot accordingly
+        if self.plot_truth is None:
             self.ax_mse.lines.remove(self.plot_mse_true)
-            self.plot_truth = None
-            self.buttons['truth'].label.set_text('Show truth')
+        else:
+            self.plot_mse_true, = self.ax_mse.plot(np.arange(len(self.mse_true)) * self.get_epochs_per_block(),
+                                                   self.mse_true, 'k-', label=self.true_loss_label.format(**self.collect_kwargs()))
 
         # Update the legend
         if self.hide_legend:
-            self.ax.legend = None
+            self.ax_mse.legend = None
         else:
-            self.ax.legend(loc='lower left')
-            # self.ax_mse.legend(loc='upper right')
             self.ax_mse.legend(loc='lower left', bbox_to_anchor=(0.0, 0.95))
+
         # Disable autoscaling, to make sure the limits remain enforced
         plt.autoscale(False)
 
@@ -1581,62 +1591,13 @@ class neuralnetplotter(magicplotter):
         # Go through all sliders in the dictionary, and store their values in a kwargs dict
         kwargs = self.collect_kwargs()
 
-        # Recompute the data and the truth
-        self.x_data, self.y_data = self.f_data(**kwargs)
-        self.y_truth = self.f_truth(self.x_truth, **kwargs)
-
         # Recompute dense
         self.y_dense = self.f_truth(self.x_dense, **kwargs) + np.random.normal(0, kwargs['epsilon'], len(self.x_dense))
 
-        # Split the data into training and validation
-        if int(kwargs['val_pct']) == 0:
-            # Use everything for training if the validation percentage is 0
-            self.x_train = self.x_data
-            self.y_train = self.y_data
-            self.x_val = None
-            self.y_val = None
+        super().update_data(event)
 
-        else:
-            # Otherwise, split the training and validation data
-            x_shuffle, y_shuffle = shuffle(self.x_data, self.y_data)
-            N_split = int(np.ceil(kwargs['N'] * (1 - kwargs['val_pct'] / 100))) # Round up, having 1 sample will guarentee 1 in training set
-            self.x_train = x_shuffle[:N_split]
-            self.y_train = y_shuffle[:N_split]
-            self.x_val = x_shuffle[N_split:]
-            self.y_val = y_shuffle[N_split:]
-
-        # Update the data and ground truth in the plots
-        self.plot_data.set_data(self.x_train, self.y_train)
-
-        if not self.plot_truth is None:
-            self.plot_truth.set_data(self.x_truth, self.y_truth)
-
-        # Update the validation data set if necessary
-        if self.x_val is None:
-            if not self.plot_val is None:
-                self.ax.lines.remove(self.plot_val)
-                self.plot_val = None
-        else:
-            if self.plot_val is None:
-                self.plot_val, = self.ax.plot(self.x_val, self.y_val, 'x', color='purple',
-                                              label=self.val_label.format(**kwargs))
-            else:
-                self.plot_val.set_data(self.x_val, self.y_val)
-
-        # Update the legend of the data and ground truth
-        self.plot_data.set_label(self.data_label.format(**kwargs))
-
-        if not self.plot_truth is None:
-            self.plot_truth.set_label(self.truth_label.format(**kwargs))
-
-        if not self.plot_val is None:
-            self.plot_val.set_label(self.val_label.format(**kwargs))
-
-        # Allow for automatic updating of the plot
-        self.fig.canvas.draw_idle()
-
-        # After updating the data, the prediction should be updated as well
-        # self.update_pred(event)
+    def update_pred(self, event):
+        pass
 
     def get_epochs_per_block(self):
         kwargs = self.collect_kwargs()
