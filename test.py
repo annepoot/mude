@@ -42,22 +42,16 @@ xscaler.fit(x[:,None])
 
 
 # Function that creates a NN
-def create_NN(**kwargs):
+def NN_create(**kwargs):
     return MLPRegressor(solver='sgd', hidden_layer_sizes=(kwargs['neurons'], kwargs['neurons']),
                         activation=kwargs['activation'], batch_size=kwargs['batch_size'])
 
 
 # Function that trains a given NN for a given number of epochs
-def NN_train(x, t, **kwargs):
-    # Get the network from the kwargs
-    network = kwargs.get('network')
-
+def NN_train(x, t, network, epochs_per_block):
     # Convert the training data to a column vector and normalize it
     X = x.reshape(-1, 1)
     X = xscaler.transform(X)
-
-    # Get the number of epochs per block
-    epochs_per_block = int(round(kwargs['epochs'] / kwargs['epoch_blocks'], 0))
 
     # Run a number of epochs
     for i in range(epochs_per_block):
@@ -67,35 +61,15 @@ def NN_train(x, t, **kwargs):
 
 
 # Function that returns predictions from a given NN model
-def NN_pred(x, t, x_pred, **kwargs):
-    # Get the network from the kwargs
-    network = kwargs.get('network')
-    return_network = kwargs.get('return_network', False)
-
-    if network is None:
-        network = create_NN(**kwargs)
-        kwargs['network'] = network
-        retrain = True
-    else:
-        retrain = kwargs.get('train_network', True)
-
+def NN_pred(x_pred, network):
     # Convert the prediction data to a column vector and normalize it
     X_pred = x_pred.reshape(-1, 1)
     X_pred = xscaler.transform(X_pred)
 
-    if retrain:
-        network, train_loss = NN_train(x, t, **kwargs)
-
     # Make a prediction at the locations given by x_pred
-    y = network.predict(X_pred)
+    return network.predict(X_pred)
 
-    if return_network:
-        return y, network, train_loss
-    else:
-        return y
-
-
-plot1 = neuralnetplotter(f_data, f_truth, NN_pred, x_pred)  # title=r'Run cell above plot before using!')
+plot1 = neuralnetplotter(f_data, f_truth, NN_create, NN_train, NN_pred, x_pred)  # title=r'Run cell above plot before using!')
 plot1.add_sliders('neurons', valmax=20, valinit=3)
 plot1.add_buttons('truth', 'seed', 'rerun')
 # plot1.add_radiobuttons('activation')

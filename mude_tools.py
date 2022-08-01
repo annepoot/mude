@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button, RadioButtons
 from sklearn.utils import shuffle
-from copy import deepcopy
 
 class magicplotter:
 
@@ -1048,7 +1047,33 @@ class neuralnetplotter(magicplotter):
             })
 
     # Create the initial plot
-    def __init__(self, f_data, f_truth, f_pred, x_pred=None, x_truth=None, **settings):
+    def __init__(self, f_data, f_truth, NN_create, NN_train, NN_pred, x_pred=None, x_truth=None, **settings):
+
+        # define f_pred as a wrapper for NN_create, NN_train, and NN_pred
+        def f_pred(x, t, x_pred, **kwargs):
+
+            # Get the network from the kwargs
+            network = kwargs['network']
+            return_network = kwargs.get('return_network', False)
+
+            # Convert the prediction data to a column vector and normalize it
+            if network is None:
+                network = NN_create(**kwargs)
+                kwargs['network'] = network
+                retrain = True
+            else:
+                retrain = kwargs.get('train_network', True)
+
+            if retrain:
+                network, train_loss = NN_train(x, t, network, self.get_epochs_per_block())
+
+            # Make a prediction at the locations given by x_pred
+            y = NN_pred(x_pred, network)
+
+            if return_network:
+                return y, network, train_loss
+            else:
+                return y
 
         # Initialize the defaults
         self.init_defaults()
@@ -1073,7 +1098,7 @@ class neuralnetplotter(magicplotter):
         self.network = None
 
         # Draw image of the activation function
-        self.activation_ax = self.fig.add_axes([0.85, 0.02, 0.10, 0.10], anchor='SW', zorder=1)
+        self.activation_ax = self.fig.add_axes([0.8, 0.02, 0.10, 0.10], anchor='SW', zorder=1)
         self.activation_ax.set_xlim(-4, 4)
         self.activation_ax.set_ylim(-2, 2)
         self.plot_act, = self.activation_ax.plot([], [])
@@ -1156,21 +1181,22 @@ class neuralnetplotter(magicplotter):
             self.y_pred, self.network, mse_train_ar = self.f_pred(self.x_train, self.y_train, self.x_pred, network=self.network,
                                                                   train_network=True, return_network=True, **kwargs)
 
-            self.mse_train = np.sqrt(np.array(mse_train_ar) * 2)     # Automatically computes (1/(2N) SUM ||..||2 ), so multiply by 2 first
+            # Automatically computes (1/(2N) SUM ||..||2 ), so multiply by 2 first
+            self.mse_train = np.sqrt(np.array(mse_train_ar) * 2)
 
             self.mse_true.append(np.sqrt(self.dense_sampling_error(**kwargs)))
 
             # Compute the validation error
-            if self.x_val is not None:
+            if self.x_val is None:
+                upper_bound = 1.1 * max(max(self.mse_train), max(self.mse_true))
+            else:
                 val_pred = self.f_pred(self.x_train, self.y_train, self.x_val, network=self.network, train_network=False, **kwargs)
                 mse_validation_ar.append(sum((val_pred - self.y_val) ** 2) / len(self.x_val))
                 self.mse_validation = np.sqrt(np.array(mse_validation_ar))
                 self.plot_mse_val.set_data(np.arange(len(self.mse_validation)) * self.get_epochs_per_block(), self.mse_validation)
 
                 # Compute boundary of the plot
-                upper_bound = max(min(self.mse_train) * 2, min(self.mse_validation) * 1.5, sum(self.mse_validation[-5:]) / 5 * 1.2, sum(self.mse_true[-5:]) / 5 * 1.2)
-            else:
-                upper_bound = max(min(self.mse_train) * 2, sum(self.mse_true[-5:]) / 5 * 1.2)
+                upper_bound = 1.1 * max(max(self.mse_train), max(self.mse_validation), max(self.mse_true))
 
             self.ax_mse.set_ybound((0, upper_bound))
 
@@ -1268,7 +1294,7 @@ class neuralnetplotter(magicplotter):
         # Create the button
         # Note: it is important that the radiobutton is not created in exactly the same place as before
         # otherwise, matplotlib will reuse the same axis
-        ax_button = self.fig.add_axes([0.1 * len(self.radio_buttons), 0., 0.1, 0.1])
+        ax_button = self.fig.add_axes([0.05 * len(self.radio_buttons), 0., 0.1, 0.1])
         radiobutton = RadioButtons(
             ax=ax_button,
             labels=labels,
@@ -1316,14 +1342,14 @@ class neuralnetplotter(magicplotter):
 
         # Set the layout of the sidebar
         self.ax_mse.yaxis.grid()
+        self.ax_mse.autoscale(True)
         self.ax_mse.set_xlim(0, kwargs['epochs'])
         self.ax_mse.set_ylim(0, 4)
-        ticks = [0, 2500, 5000, 7500, 10000]
+        ticks = [int((i*kwargs['epochs'])/4) for i in range(5)]
         self.ax_mse.set_xticks(ticks)
         self.ax_mse.set_xticklabels(ticks, rotation=0)
         self.ax_mse.set_xlabel('Epochs')
         self.ax_mse.set_ylabel('RMSE')
-        self.ax_mse.autoscale(False)
 
         # Remove the existing training and validation loss
         if self.plot_mse_train is not None:
@@ -1365,6 +1391,11 @@ class neuralnetplotter(magicplotter):
         }
 
         super().adjust_plot(**settings)
+
+        # put network ax underneath ax_mse if both were initalized
+        if self.ax_mse is not None and 'network_ax' in vars(self):
+            ll, bb, ww, hh = self.ax_mse.get_position().bounds
+            self.network_ax.set_position([ll - 0.025, 0.11, ww + 0.05, 0.27])
 
         # Set the position of the radiobuttons one by one
         for val, radiobutton in self.radio_buttons.items():
@@ -1450,27 +1481,7 @@ class neuralnetplotter(magicplotter):
 
 
 def draw_neural_net(ax, left, right, bottom, top, layer_sizes):
-    '''
-    Draw a neural network cartoon using matplotilb.
 
-    :usage:
-        # >>> fig = plt.figure(figsize=(12, 12))
-        # >>> draw_neural_net(fig.gca(), .1, .9, .1, .9, [4, 7, 2])
-
-    :parameters:
-        - ax : matplotlib.axes.AxesSubplot
-            The axes on which to plot the cartoon (get e.g. by plt.gca())
-        - left : float
-            The center of the leftmost node(s) will be placed here
-        - right : float
-            The center of the rightmost node(s) will be placed here
-        - bottom : float
-            The center of the bottommost node(s) will be placed here
-        - top : float
-            The center of the topmost node(s) will be placed here
-        - layer_sizes : list of int
-            List of layer sizes, including input and output dimensionality
-    '''
     n_layers = len(layer_sizes)
     v_spacing = (top - bottom)/float(max(layer_sizes))
     h_spacing = (right - left)/float(len(layer_sizes) - 1)
