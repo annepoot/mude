@@ -1434,15 +1434,15 @@ class neuralnetplotter(magicplotter):
     # Define the function that will be called when the hide/show truth button is called
     def toggle_truth(self, event):
 
-        # Show or hide the truth in the main plot
-        super().toggle_truth(event)
-
         # Show or hide the truth in the mse plot accordingly
         if self.plot_truth is None:
-            self.ax_mse.lines.remove(self.plot_mse_true)
-        else:
             self.plot_mse_true, = self.ax_mse.plot(np.arange(len(self.mse_true)) * self.get_epochs_per_block(),
-                                                   self.mse_true, 'k-', label=self.true_loss_label.format(**self.collect_kwargs()))
+                                                   self.mse_true, 'k-', label='True error')
+        else:
+            self.ax_mse.lines.remove(self.plot_mse_true)
+
+        # Show or hide the truth in the main plot
+        super().toggle_truth(event)
 
         # Update the legend
         if self.hide_legend:
@@ -1477,7 +1477,7 @@ class neuralnetplotter(magicplotter):
 
     def get_epochs_per_block(self):
         kwargs = self.collect_kwargs()
-        return int(round(kwargs['epochs'] / kwargs['epoch_blocks'], 0))
+        return int(np.ceil(kwargs['epochs'] / kwargs['epoch_blocks']))
 
 
 def draw_neural_net(ax, left, right, bottom, top, layer_sizes):
