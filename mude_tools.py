@@ -129,11 +129,15 @@ class magicplotter:
 
 
     # Create the initial plot
-    def __init__(self, f_data, f_truth, f_pred, x_pred = None, x_truth = None, **settings):
+    def __init__(self, f_data, f_truth, f_pred, x_pred = None, x_data = None, y_data = None,
+                 x_truth = None, **settings):
 
         # Define a seed to make sure all results are reproducible
-        self.seed = 0
-
+        if "seed" in settings:
+            self.seed = settings["seed"]
+        else:        
+            self.seed = 0
+            
         # Create an empty dictionary, which will later store all slider values
         self.sliders = {}
         self.sliders_right = {}
@@ -145,12 +149,19 @@ class magicplotter:
 
         # Collect all key word arguments
         kwargs = self.collect_kwargs()
-
+        
         # Store all variables that were passed to the init function
         self.f_data = f_data
         self.f_truth = f_truth
         self.f_pred = f_pred
-        self.x_data, self.y_data = self.f_data(**kwargs)
+        
+        if (x_data is None) & (y_data is None):
+            self.x_data, self.y_data = self.f_data(**kwargs)
+            self.keep_data = False
+        else:
+            self.x_data, self.y_data = x_data, y_data
+            self.keep_data = True
+        
         self.x_train, self.y_train = self.x_data, self.y_data
         self.x_pred = self.x_data if x_pred is None else x_pred
         # self.y_pred = self.f_pred(self.x_train, self.y_train, self.x_pred, **kwargs)
@@ -165,13 +176,23 @@ class magicplotter:
         self.val_label = settings.get('val_label', r'Validation data $(x,t)$')
         self.probe_label = settings.get('probe_label', r'Probe')
         self.hide_legend = settings.get('hide_legend', False)
+        
+        # get height and/or width if specified
+        if 'height' in settings:
+            self.h = settings['height']
 
+        if 'width' in settings:
+            self.w = settings['width']
+            
         # Get the given axes from the settings, or create a new figure
         if 'ax' in settings:
             self.ax = settings['ax']
             self.fig = self.ax.figure
         else:
             self.fig, self.ax = plt.subplots(figsize=(self.w,self.h))
+            
+        self.ax.set_xlabel('x')
+        self.ax.set_ylabel('t')
 
         # Add the truth, data and prediction
         self.plot_truth, = self.ax.plot([], [], 'k-', label=self.truth_label.format(**kwargs))
@@ -191,12 +212,13 @@ class magicplotter:
 
 
     def update_data(self, event):
-
+        
         # Go through all sliders in the dictionary, and store their values in a kwargs dict
         kwargs = self.collect_kwargs()
 
         # Recompute the data and the truth
-        self.x_data, self.y_data = self.f_data(**kwargs)
+        if not self.keep_data:
+            self.x_data, self.y_data = self.f_data(**kwargs)
         self.y_truth = self.f_truth(self.x_truth, **kwargs)
 
         # Split the data into training and validation
