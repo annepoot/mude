@@ -1,7 +1,7 @@
 # Import necessary packages
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider, Button
+from matplotlib.widgets import Slider, Button, RadioButtons
 from sklearn.utils import shuffle
 
 class magicplotter:
@@ -102,19 +102,22 @@ class magicplotter:
             'index':1,
             'hovercolor':'0.975',
             'label':'Hide truth',
-            'update':'truth'
+            'update':'truth',
+            'position':0
         },
         'seed':{
             'index':2,
             'hovercolor':'0.975',
             'label':'New seed',
-            'update':'seed'
+            'update':'seed',
+            'position':1
         },
         'reset':{
             'index':3,
             'hovercolor':'0.975',
             'label':'Reset',
-            'update':'reset'
+            'update':'reset',
+            'position':2
         }
     }
 
@@ -137,7 +140,9 @@ class magicplotter:
             
         # Create an empty dictionary, which will later store all slider values
         self.sliders = {}
+        self.sliders_right = {}
         self.buttons = {}
+        self.button_positions = {}
 
         # Store the additional settings
         self.settings = settings
@@ -159,11 +164,10 @@ class magicplotter:
         
         self.x_train, self.y_train = self.x_data, self.y_data
         self.x_pred = self.x_data if x_pred is None else x_pred
-        self.y_pred = self.f_pred(self.x_train, self.y_train, self.x_pred, **kwargs)
+        # self.y_pred = self.f_pred(self.x_train, self.y_train, self.x_pred, **kwargs)
         self.x_truth = self.x_pred if x_truth is None else x_truth
-        self.y_truth = self.f_truth(self.x_truth, **kwargs)
-        
-        
+        # self.y_truth = self.f_truth(self.x_truth, **kwargs)
+
         # Get additional settings like the original plot title and labels
         self.title = settings.get('title', None)
         self.data_label = settings.get('data_label', r'Training data $(x,t)$')
@@ -191,9 +195,9 @@ class magicplotter:
         self.ax.set_ylabel('t')
 
         # Add the truth, data and prediction
-        self.plot_truth, = self.ax.plot(self.x_truth, self.y_truth, 'k-', label=self.truth_label.format(**kwargs))
-        self.plot_data, = self.ax.plot(self.x_train, self.y_train, 'x', label=self.data_label.format(**kwargs))
-        self.plot_pred, = self.ax.plot(self.x_pred, self.y_pred, '-', label=self.pred_label.format(**kwargs))
+        self.plot_truth, = self.ax.plot([], [], 'k-', label=self.truth_label.format(**kwargs))
+        self.plot_data, = self.ax.plot([], [], 'x', label=self.data_label.format(**kwargs))
+        self.plot_pred, = self.ax.plot([], [], '-', label=self.pred_label.format(**kwargs))
 
         # Initialize the validation set, probe, probe set and sidebar (to ensure they exist)
         self.plot_val = None
@@ -230,7 +234,7 @@ class magicplotter:
 
             # Otherwise, split the training and validation data
             x_shuffle, y_shuffle = shuffle(self.x_data, self.y_data)
-            N_split = int(kwargs['N'] * (1-kwargs['val_pct']/100))
+            N_split = int(np.ceil(kwargs['N'] * (1-kwargs['val_pct']/100)))
             self.x_train = x_shuffle[:N_split]
             self.y_train = y_shuffle[:N_split]
             self.x_val = x_shuffle[N_split:]
@@ -396,6 +400,9 @@ class magicplotter:
         else:
             self.ax.legend(loc='lower left')
 
+        # Allow for automatic updating of the plot
+        self.fig.canvas.draw_idle()
+
 
     # Define a function that changes the seed
     def update_seed(self, event):
@@ -437,6 +444,9 @@ class magicplotter:
         label = settings['label'] if 'label' in settings else def_settings['label']
         update = settings['update'] if 'update' in settings else def_settings['update']
 
+        position = settings.get('position', def_settings.get('position', 'left'))
+        valstep = settings.get('valstep', def_settings.get('valstep', None))
+
         # Create the slider
         # Note: it is important that the slider is not created in exactly the same place as before
         # otherwise, matplotlib will reuse the same axis
@@ -448,11 +458,15 @@ class magicplotter:
             valmax=valmax,
             valinit=valinit,
             valfmt=valfmt,
+            valstep=valstep,
             orientation=orientation
         )
 
         # Add the slider to the dictionary that will store the slider values
-        self.sliders[var] = slider
+        if position == 'right':
+            self.sliders_right[var] = slider
+        else:
+            self.sliders[var] = slider
 
         # Get the correct update function
         update_func = self.get_update_func(update)
@@ -474,6 +488,7 @@ class magicplotter:
         hovercolor = settings['hovercolor'] if 'hovercolor' in settings else def_settings['hovercolor']
         label = settings['label'] if 'label' in settings else def_settings['label']
         update = settings['update'] if 'update' in settings else def_settings['update']
+        position = settings['position'] if 'position' in settings else def_settings['position']
 
         # Create the button
         # Note: it is important that the button is not created in exactly the same place as before
@@ -487,6 +502,7 @@ class magicplotter:
 
         # Add the slider to the dictionary that will store the slider values
         self.buttons[var] = button
+        self.button_positions[var] = position
 
         # Get the correct update function
         update_func = self.get_update_func(update)
@@ -496,7 +512,6 @@ class magicplotter:
 
         # Adjust the plot to make room for the added slider
         self.adjust_plot()
-
 
     # Add the mse sidebar to the right side of the plot
     def add_sidebar(self):
@@ -530,7 +545,6 @@ class magicplotter:
         # Adjust the plot to make room for the added sidebar
         self.adjust_plot()
 
-
     # Add a probe to display the effect region as a function of k
     def add_probe(self):
 
@@ -551,13 +565,11 @@ class magicplotter:
         # Highlight the k neighbors that are nearest to the probe
         self.plot_neighbors, = self.ax.plot(self.x_probe, self.y_probe, 'X', color='C2', alpha=0.5)
 
-
     # A nice wrapper to add multiple sliders at once
     def add_sliders(self, *var_list, **settings):
 
         for var in var_list:
             self.add_slider(var, **settings)
-
 
     # A nice wrapper to add multiple buttons at once
     def add_buttons(self, *var_list, **settings):
@@ -566,24 +578,31 @@ class magicplotter:
             self.add_button(var, **settings)
 
     # Adjust the plot to make room for the sliders
-    def adjust_plot(self):
+    def adjust_plot(self, **settings):
 
         r = self.r
-        slider_thick = 0.03
-        hor_slider_space = 0.02
-        ver_slider_space = 0.07
-        hor_label_space = 0.10
-        ver_label_space = 0.12
-        button_thick = 0.04
-        button_length = 0.15
-        sidebar_width = 0.1
+        slider_thick = settings.get('slider_thick', 0.03)
+        hor_slider_space = settings.get('hor_slider_space', 0.02)
+        ver_slider_space = settings.get('ver_slider_space', 0.07)
+        hor_slider_shrink = settings.get('hor_slider_shrink', 0.00)
+        hor_label_space = settings.get('hor_label_space', 0.10)
+        ver_label_space = settings.get('ver_label_space', 0.12)
+        button_thick = settings.get('button_thick', 0.04)
+        button_length = settings.get('button_length', 0.15)
+        sidebar_width = settings.get('sidebar_width', 0.1)
+
 
         hor_sliders = [slider for slider in self.sliders.values() if slider.orientation=='horizontal']
+        hor_sliders_right = [slider for slider in self.sliders_right.values()]
         ver_sliders = [slider for slider in self.sliders.values() if slider.orientation=='vertical']
 
         # Get all the sizes of the main plot
         bottom = max(hor_label_space + (hor_slider_space + slider_thick) * len(hor_sliders) + (hor_slider_space + button_thick) * (len(self.buttons) > 0) + (hor_slider_space + button_thick) * (len(self.buttons) > 3), 0.1)
+        if 'bottom' in settings:
+            bottom = settings['bottom']
         left = max(ver_label_space + (ver_slider_space + slider_thick) * len(ver_sliders), 0.2)
+        if 'left' in settings:
+            left = settings['left']
         top = 0.1
         right = 0.1 + (sidebar_width + ver_slider_space) * (not self.ax_mse is None)
         height = 1 - top - bottom
@@ -597,9 +616,19 @@ class magicplotter:
 
             # Set the position of the slider
             slider.ax.set_position(
-                [left,
+                [left+hor_slider_shrink/2,
                  bottom - hor_label_space - slider_thick - (hor_slider_space + slider_thick) * i,
-                 width,
+                 width-hor_slider_shrink,
+                 slider_thick])
+
+        # Set the position of the horizontal sliders one by one
+        for i, slider in enumerate(hor_sliders_right):
+
+            # Set the position of the slider
+            slider.ax.set_position(
+                [1 - right + ver_slider_space,
+                 bottom - hor_label_space - slider_thick - (hor_slider_space + slider_thick) * i,
+                 sidebar_width,
                  slider_thick])
 
         # Set the position of the vertical sliders one by one
@@ -619,19 +648,8 @@ class magicplotter:
         # Set the position of the buttons one by one
         for val, button in self.buttons.items():
 
-            # Find the left side of the button
-            if val == 'truth':
-                i = 0
-            elif val == 'seed':
-                i = 1
-            elif val == 'reset':
-                i = 2
-            elif val == 'D_small':
-                i = 3
-            elif val == 'D_medium':
-                i = 4
-            elif val == 'D_large':
-                i = 5
+            # Get the position of the button
+            i = self.button_positions[val]
 
             # Set the position of the button
             button.ax.set_position(
@@ -757,43 +775,51 @@ class biasvarianceplotter(magicplotter):
     D_medium = 30
     D_large = 100
 
-    # Define the default settings for all sliders
-    defaults = {
-        'D':{
-            'valmin':1,
-            'valmax':100,
-            'valinit':25,
-            'valfmt':'%0.0f',
-            'orientation':'horizontal',
-            'label':r'# of datasets ($D$)',
-            'update':'pred'
-        },
-        'D_small':{
-            'index':4,
-            'hovercolor':'0.975',
-            'label':'{} datasets'.format(D_small),
-            'update':'datasets_small'
-        },
-        'D_medium':{
-            'index':5,
-            'hovercolor':'0.975',
-            'label':'{} datasets'.format(D_medium),
-            'update':'datasets_medium'
-        },
-        'D_large':{
-            'index':6,
-            'hovercolor':'0.975',
-            'label':'{} datasets'.format(D_large),
-            'update':'datasets_large'
-        }
-    }
+    def init_defaults(self):
 
-    # Add the defaults settings for the sliders from the magicplotter
-    defaults.update(magicplotter.defaults)
+        # Define the default settings for all sliders
+        self.defaults = {
+            'D':{
+                'valmin':1,
+                'valmax':100,
+                'valinit':25,
+                'valfmt':'%0.0f',
+                'orientation':'horizontal',
+                'label':r'# of datasets ($D$)',
+                'update':'pred'
+            },
+            'D_small':{
+                'index':4,
+                'hovercolor':'0.975',
+                'label':'{} datasets'.format(self.D_small),
+                'update':'datasets_small',
+                'position':3
+            },
+            'D_medium':{
+                'index':5,
+                'hovercolor':'0.975',
+                'label':'{} datasets'.format(self.D_medium),
+                'update':'datasets_medium',
+                'position':4
+            },
+            'D_large':{
+                'index':6,
+                'hovercolor':'0.975',
+                'label':'{} datasets'.format(self.D_large),
+                'update':'datasets_large',
+                'position':5
+            }
+        }
+
+        # Add the defaults settings for the sliders from the magicplotter
+        self.defaults.update(magicplotter.defaults)
 
 
     # Create the initial plot
     def __init__(self, f_data, f_truth, f_pred, x_pred = None, x_truth = None, **settings):
+
+        # Initialize the defaults
+        self.init_defaults()
 
         # Get additional settings like the original labels
         self.title = settings.get('title', r'Bias and variance computed over {D} datasets')
@@ -950,3 +976,555 @@ class biasvarianceplotter(magicplotter):
         for y_pred in y_pred_list:
             self.variance += (y_pred-self.y_mean_pred)**2
         self.variance /= D
+
+
+class neuralnetplotter(magicplotter):
+
+    def init_defaults(self):
+
+        # Define the default settings for all sliders
+        self.defaults = {
+            'neurons': {
+                'valmin': 1,
+                'valmax': 35,
+                'valinit': 20,
+                'valfmt': '%0.0f',
+                'orientation': 'horizontal',
+                'label': r'Neurons / layer',
+                'update': 'change_neurons',
+            },
+            'epochs': {
+                'valmin': 1000,
+                'valmax': 10000,
+                'valinit': 10000,
+                'valfmt': '%0.0f',
+                'orientation': 'horizontal',
+                'label': r'Training epochs',
+                'update': 'passive',
+                'valstep': np.arange(1000, 10050, 50)
+            },
+            'epoch_blocks': {
+                'valinit': 200
+            },
+            'cur_model': {
+                'valmin': 1,
+                'valmax': 200,
+                'valinit': 200,
+                'valfmt': '%0.0f',
+                'orientation': 'horizontal',
+                'label': 'Selected\nmodel',
+                'update': 'change_model',
+                'position': 'right'
+            },
+            'batch_size': {
+                'valmin': 1,
+                'valmax': 100,
+                'valinit': 5,
+                'valfmt': '%0.0f',
+                'orientation': 'horizontal',
+                'label': r'Samples per batch',
+                'update': 'passive',
+            },
+            'rerun': {
+                'index': 3,
+                'hovercolor': '0.975',
+                'label': 'Run',
+                'update': 'train',
+                'position':3
+            },
+            'activation': {
+                'index': 4,
+                'active': 2,
+                'activecolor': 'black',
+                'valinit': 'tanh',
+                'labels': ['identity', 'relu', 'tanh'],
+                'update': 'update_activation'
+            },
+        }
+
+        self.defaults.update(magicplotter.defaults)
+
+        # Modify the preexisting defaults appropriately
+        self.defaults['epsilon'].update(
+            {
+                'valinit': 0.4,
+                'orientation': 'horizontal',
+            })
+        self.defaults['N'].update(
+            {
+                'valmin': 2,
+                'valmax': 200,
+                'valinit': 60,
+            })
+        self.defaults['freq'].update(
+            {
+                'valmax': 5,
+                'valinit': 3.4,
+            })
+        self.defaults['val_pct'].update(
+            {
+                'valmax': 60,
+                'valinit': 30,
+                'valstep': np.arange(0, 65, 5)
+            })
+
+    # Create the initial plot
+    def __init__(self, f_data, f_truth, NN_create, NN_train, NN_pred, x_pred=None, x_truth=None, **settings):
+
+        # define f_pred as a wrapper for NN_create, NN_train, and NN_pred
+        def f_pred(x, t, x_pred, **kwargs):
+
+            # Get the network from the kwargs
+            network = kwargs['network']
+            return_network = kwargs.get('return_network', False)
+
+            # Convert the prediction data to a column vector and normalize it
+            if network is None:
+                network = NN_create(**kwargs)
+                kwargs['network'] = network
+                retrain = True
+            else:
+                retrain = kwargs.get('train_network', True)
+
+            if retrain:
+                network, train_loss = NN_train(x, t, network, self.get_epochs_per_block())
+
+            # Make a prediction at the locations given by x_pred
+            y = NN_pred(x_pred, network)
+
+            if return_network:
+                return y, network, train_loss
+            else:
+                return y
+
+        # Initialize the defaults
+        self.init_defaults()
+
+        # Create an empty dictionary, which will later store all slider values
+        self.radio_buttons = {}
+
+        # Data for truth function
+        self.x_dense = np.linspace(0, 2 * np.pi, 1500)
+
+        # Perform the initialization of the magiplotter stuff first
+        # This also redirects to the update_pred function
+        super().__init__(f_data, f_truth, f_pred, x_pred, x_truth, **settings)
+
+        # Hide the legend
+        self.hide_legend = True
+
+        # Add the MSE plot to the side
+        self.add_sidebar()
+
+        # Initialize the network (to ensure the variable exists)
+        self.network = None
+
+        # Draw image of the activation function
+        self.activation_ax = self.fig.add_axes([0.8, 0.02, 0.10, 0.10], anchor='SW', zorder=1)
+        self.activation_ax.set_xlim(-4, 4)
+        self.activation_ax.set_ylim(-2, 2)
+        self.plot_act, = self.activation_ax.plot([], [])
+        self.activation_ax.axis('off')
+
+    # When a slider is changed, don't do anything except changing the 'Run' button appearance
+    def passive(self, event):
+
+        if 'rerun' in self.buttons:
+            if self.plot_pred is None:
+                firstrun = True
+            elif len(self.plot_pred.get_data()[0]) == 0:
+                firstrun = True
+            else:
+                firstrun = False
+
+            if not firstrun:
+                self.buttons['rerun'].color = 'red'
+                self.buttons['rerun'].label.set_text('Re-run')
+                self.buttons['rerun'].hovercolor = 'green'
+
+    # Function to change the image & buttons when the number of neurons in the model changes
+    def change_neurons(self, event):
+        kwargs = self.collect_kwargs()
+
+        # Update network image
+        self.network_ax.cla()  # delete previous image
+        self.network_ax.axis('off')
+        draw_neural_net(self.network_ax, .1, .9, .1, .9, [1, kwargs['neurons'], kwargs['neurons'], 1])
+        self.fig.canvas.draw()
+
+        # Do standard slider updating
+        self.passive(event)
+
+    # Function that plots the activation function
+    def plot_activation(self):
+        x_act = np.linspace(-4, 4, 100)
+        kwargs = self.collect_kwargs()
+        activation = kwargs['activation']
+
+        if activation == 'identity':
+            y_act = x_act
+        elif activation == 'relu':
+            y_act = [max(0, xi) for xi in x_act]
+        elif activation == 'tanh':
+            y_act = np.tanh(x_act)
+
+        self.plot_act.set_data(x_act, y_act)
+        self.fig.canvas.draw()
+
+    # A function that changes the appearances when changing the activation
+    def update_activation(self, event):
+        self.plot_activation()
+        self.passive(event)
+
+    # Function that loads a previously computed model
+    def change_model(self, event):
+        kwargs = self.collect_kwargs()
+        epochs = kwargs['epochs']  # 1- epochs
+        cur_epoch = int(kwargs['cur_model'] / 200 * epochs)
+
+        # Change vertical line in loss plot (can't adjust x-position only; so re-draw with extreme bounds)
+        self.plot_cur_epoch.set_data([[cur_epoch, cur_epoch], [-1, 9e9]])
+
+        if len(self.trained_models) != 0:
+            y_pred = self.trained_models[kwargs['cur_model']]
+            self.plot_pred.set_data(self.x_pred, y_pred)
+
+        # Allow for automatic updating of the plot
+        self.fig.canvas.draw_idle()
+
+    def trainloop(self, **kwargs):
+        mse_validation_ar = []
+        self.mse_true = []
+
+        # Loop over epoch nums. A block here contains multiple epochs
+        for i in range(kwargs['epoch_blocks']):
+
+            # Train for a fixed number of epochs
+            self.y_pred, self.network, mse_train_ar = self.f_pred(self.x_train, self.y_train, self.x_pred, network=self.network,
+                                                                  train_network=True, return_network=True, **kwargs)
+
+            # Automatically computes (1/(2N) SUM ||..||2 ), so multiply by 2 first
+            self.mse_train = np.sqrt(np.array(mse_train_ar) * 2)
+
+            self.mse_true.append(np.sqrt(self.dense_sampling_error(**kwargs)))
+
+            # Compute the validation error
+            if self.x_val is None:
+                upper_bound = 1.1 * max(max(self.mse_train), max(self.mse_true))
+            else:
+                val_pred = self.f_pred(self.x_train, self.y_train, self.x_val, network=self.network, train_network=False, **kwargs)
+                mse_validation_ar.append(sum((val_pred - self.y_val) ** 2) / len(self.x_val))
+                self.mse_validation = np.sqrt(np.array(mse_validation_ar))
+                self.plot_mse_val.set_data(np.arange(len(self.mse_validation)) * self.get_epochs_per_block(), self.mse_validation)
+
+                # Compute boundary of the plot
+                upper_bound = 1.1 * max(max(self.mse_train), max(self.mse_validation), max(self.mse_true))
+
+            self.ax_mse.set_ybound((0, upper_bound))
+
+            self.plot_pred.set_data(self.x_pred, self.y_pred)
+            self.plot_mse_train.set_data(np.arange(len(self.mse_train)), self.mse_train)
+            self.plot_mse_true.set_data(np.arange(len(self.mse_true)) * self.get_epochs_per_block(), self.mse_true)
+            self.fig.canvas.draw()
+
+            # Store prediction to select back after training
+            self.trained_models.append(self.y_pred)
+
+    # The train function
+    def train(self, event):
+        kwargs = self.collect_kwargs()
+
+        # Update the legend
+        self.plot_pred.set_label(self.pred_label.format(**kwargs))
+
+        self.plot_mse_val.set_data([], []) # Empty validation loss, to reset it in case of %=0.
+
+        self.trained_models = []
+        self.network = None
+
+        # Change colors of the Rerun button while training
+        if 'rerun' in self.buttons:
+            self.buttons['rerun'].color = 'green'
+            self.buttons['rerun'].label.set_text('Running')
+            self.buttons['rerun'].hovercolor = 'green'
+
+        # Set limit of loss function plot
+        self.ax_mse.set_xbound((0, kwargs['epochs']))
+        # Set 'selected model' to end
+        if 'cur_model' in self.sliders_right:
+            self.sliders_right['cur_model'].set_val(kwargs['epoch_blocks'])
+
+        # Data
+        self.update_data(0)
+
+        # Update legend
+        if self.hide_legend:
+            self.ax.legend = None
+            self.ax_mse.legend = None
+        else:
+            self.ax.legend(loc='lower left')
+            self.ax_mse.legend(loc='lower left', bbox_to_anchor=(0.0, 0.95))
+
+        self.trainloop(**kwargs)
+
+        # Change colors of the Rerun button back
+        if 'rerun' in self.buttons:
+            self.buttons['rerun'].color = 'gray'
+            self.buttons['rerun'].label.set_text('Finished')
+            self.buttons['rerun'].hovercolor = 'gray'
+
+        self.fig.canvas.draw_idle()
+
+    # Approximate the 'true error' with a dense sampling of the space & network predictions
+    def dense_sampling_error(self, **kwargs):
+        return sum((self.y_dense - self.f_pred(self.x_train, self.y_train, self.x_dense, network = self.network,
+                                               train_network=False, **kwargs)) ** 2) / len(self.x_dense)
+
+    # Add a slider below the plot; with minimal spacing
+    def add_slider(self, var, **settings):
+
+        super().add_slider(var, **settings)
+
+        # Hide the value of the model selector
+        if var == 'cur_model':
+            self.sliders_right[var].valtext.set_visible(False)
+
+        # Draw image of the neural network if the number of neurons are optional
+        if var == 'neurons':
+            valinit = self.sliders[var].valinit
+            self.network_ax = self.fig.add_axes([0.72, 0.11, 0.27, 0.27], anchor='SW', zorder=0)
+            draw_neural_net(self.network_ax, .1, .9, .1, .9, [1, valinit, valinit, 1])
+            self.network_ax.axis('off')
+            self.fig.canvas.draw()
+
+        # Adjust the plot to make room for the added slider
+        self.adjust_plot()
+
+
+    # Add a radiobutton to the plot
+    def add_radiobutton(self, var, **settings):
+
+        # Check if the variable is in defaults
+        def_settings = self.defaults.get(var, {})
+
+        # Load all default/given values
+        activecolor = settings['activecolor'] if 'activecolor' in settings else def_settings['activecolor']
+        labels = settings['labels'] if 'labels' in settings else def_settings['labels']
+        update = settings['update'] if 'update' in settings else def_settings['update']
+        active = settings['active'] if 'active' in settings else def_settings['active']
+
+        # Create the button
+        # Note: it is important that the radiobutton is not created in exactly the same place as before
+        # otherwise, matplotlib will reuse the same axis
+        ax_button = self.fig.add_axes([0.05 * len(self.radio_buttons), 0., 0.1, 0.1])
+        radiobutton = RadioButtons(
+            ax=ax_button,
+            labels=labels,
+            active=active,
+            activecolor=activecolor
+        )
+
+        # Add the radiobutton to the dictionary that will store the radiobutton values
+        self.radio_buttons[var] = radiobutton
+
+        # Get the correct update function
+        update_func = self.get_update_func(update)
+
+        # Add an event to the radiobutton
+        radiobutton.on_clicked(update_func)
+
+        # Draw image of the activation function if it is optional
+        if update == 'update_activation':
+            self.plot_activation()
+
+        # Adjust the plot to make room for the added radiobutton
+        self.adjust_plot()
+
+    # A nice wrapper to add multiple radio_buttons at once
+    def add_radiobuttons(self, *var_list, **settings):
+
+        for var in var_list:
+            self.add_radiobutton(var, **settings)
+
+    # Add the mse sidebar to the right side of the plot
+    def add_sidebar(self):
+
+        # Set initial values to ensure super().add_sidebar() doesn't crash
+        self.mse_train = 0
+        self.mse_validation = 0
+        self.mse_true = []
+
+        super().add_sidebar()
+
+        kwargs = self.collect_kwargs()
+
+        # Add the true loss and current epoch to the sidebar
+        self.plot_mse_true, = self.ax_mse.plot([], [], 'k-', label='True error')
+        self.plot_cur_epoch = self.ax_mse.axvline(kwargs['epochs'], 0, 1, linestyle='--', color='green')
+
+        # Set the layout of the sidebar
+        self.ax_mse.yaxis.grid()
+        self.ax_mse.autoscale(True)
+        self.ax_mse.set_xlim(0, kwargs['epochs'])
+        self.ax_mse.set_ylim(0, 4)
+        ticks = [int((i*kwargs['epochs'])/4) for i in range(5)]
+        self.ax_mse.set_xticks(ticks)
+        self.ax_mse.set_xticklabels(ticks, rotation=0)
+        self.ax_mse.set_xlabel('Epochs')
+        self.ax_mse.set_ylabel('RMSE')
+
+        # Remove the existing training and validation loss
+        if self.plot_mse_train is not None:
+            self.plot_mse_train.set_linestyle('-')
+            self.plot_mse_train.set_marker(None)
+            self.plot_mse_train.set_data([], [])
+
+        if self.plot_mse_val is not None:
+            self.plot_mse_val.set_linestyle('-')
+            self.plot_mse_val.set_marker(None)
+            self.plot_mse_val.set_data([], [])
+
+    # This function takes a string and returns the corresponding update function
+    def get_update_func(self, update):
+        if update == 'passive':
+            return self.passive
+        elif update == 'update_activation':
+            return self.update_activation
+        elif update == 'change_model':
+            return self.change_model
+        elif update == 'train':
+            return self.train
+        elif update == 'change_neurons':
+            return self.change_neurons
+        else:
+            return super().get_update_func(update)
+
+
+    # Adjust the plot to make room for the sliders
+    def adjust_plot(self):
+
+        settings = {
+            'bottom':0.5,
+            'left':0.05,
+            'button_length':0.1,
+            'sidebar_width':0.2,
+            'hor_slider_shrink':0.2,
+            'ver_slider_space':0.1,
+        }
+
+        super().adjust_plot(**settings)
+
+        # put network ax underneath ax_mse if both were initalized
+        if self.ax_mse is not None and 'network_ax' in vars(self):
+            ll, bb, ww, hh = self.ax_mse.get_position().bounds
+            self.network_ax.set_position([ll - 0.025, 0.11, ww + 0.05, 0.27])
+
+        # Set the position of the radiobuttons one by one
+        for val, radiobutton in self.radio_buttons.items():
+            # Get automatic size of button
+            ll, bb, ww, hh = radiobutton.ax.get_position().bounds
+
+            radiobutton.ax.set_position(
+                [self.network_ax.get_position().bounds[0],  # posx
+                 0.01,  # posy
+                 ww,  # width
+                 hh])  # height
+
+
+    # Define a function that collects all key word arguments
+    def collect_kwargs(self):
+
+        # First collect the magicplotter kwargs
+        kwargs = super().collect_kwargs()
+
+        # Go through all current sliders, and store their current values
+        for val, slider in self.sliders_right.items():
+
+            # Check if the slider should return an integer
+            if slider.valfmt == '%0.0f':
+                kwargs[val] = round(slider.val)
+            else:
+                kwargs[val] = slider.val
+
+        # Repeat for radio_buttons:
+        for val, radiobutton in self.radio_buttons.items():
+            kwargs[val] = radiobutton.value_selected
+
+        return kwargs
+
+
+    # Define the function that will be called when the hide/show truth button is called
+    def toggle_truth(self, event):
+
+        # Show or hide the truth in the mse plot accordingly
+        if self.plot_truth is None:
+            self.plot_mse_true, = self.ax_mse.plot(np.arange(len(self.mse_true)) * self.get_epochs_per_block(),
+                                                   self.mse_true, 'k-', label='True error')
+        else:
+            self.ax_mse.lines.remove(self.plot_mse_true)
+
+        # Show or hide the truth in the main plot
+        super().toggle_truth(event)
+
+        # Update the legend
+        if self.hide_legend:
+            self.ax_mse.legend = None
+        else:
+            self.ax_mse.legend(loc='lower left', bbox_to_anchor=(0.0, 0.95))
+
+        # Disable autoscaling, to make sure the limits remain enforced
+        plt.autoscale(False)
+
+        # Allow for automatic updating of the plot
+        self.fig.canvas.draw_idle()
+
+
+    def update_data(self, event):
+
+        # Go through all sliders in the dictionary, and store their values in a kwargs dict
+        kwargs = self.collect_kwargs()
+
+        # Recompute dense
+        self.y_dense = self.f_truth(self.x_dense, **kwargs) + np.random.normal(0, kwargs['epsilon'], len(self.x_dense))
+
+        super().update_data(event)
+
+        # Change the color of the rerun button
+        self.passive(event)
+
+
+    def update_pred(self, event):
+        pass
+
+
+    def get_epochs_per_block(self):
+        kwargs = self.collect_kwargs()
+        return int(np.ceil(kwargs['epochs'] / kwargs['epoch_blocks']))
+
+
+def draw_neural_net(ax, left, right, bottom, top, layer_sizes):
+
+    n_layers = len(layer_sizes)
+    v_spacing = (top - bottom)/float(max(layer_sizes))
+    h_spacing = (right - left)/float(len(layer_sizes) - 1)
+
+    # read max layer size and compute linewidth with an offset
+    max_layer_size = max(layer_sizes)
+    linewidth = np.min(np.exp( - (max_layer_size - 5 ) / 10 ))
+
+    # Nodes
+    for n, layer_size in enumerate(layer_sizes):
+        layer_top = v_spacing*(layer_size - 1)/2. + (top + bottom)/2.
+        for m in range(layer_size):
+            circle = plt.Circle((n*h_spacing + left, layer_top - m*v_spacing), v_spacing/4.,
+                                color='green', ec='k', zorder=4)
+            ax.add_artist(circle)
+    # Edges
+    for n, (layer_size_a, layer_size_b) in enumerate(zip(layer_sizes[:-1], layer_sizes[1:])):
+        layer_top_a = v_spacing*(layer_size_a - 1)/2. + (top + bottom)/2.
+        layer_top_b = v_spacing*(layer_size_b - 1)/2. + (top + bottom)/2.
+        for m in range(layer_size_a):
+            for o in range(layer_size_b):
+                line = plt.Line2D([n*h_spacing + left, (n + 1)*h_spacing + left],
+                                  [layer_top_a - m*v_spacing, layer_top_b - o*v_spacing], c='k', linewidth=linewidth)
+                ax.add_artist(line)
