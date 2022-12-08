@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
 
 import plotly.graph_objects as go
@@ -95,3 +96,29 @@ def plotly_plot(df, total_idx=None, measure_locs=None, defect_loc_true=None, def
     fig.update_xaxes(range=(-0.2,10.2), constrain='domain')
     fig.update_yaxes(range=(-0.2,2.2), constrain='domain', scaleanchor='x', scaleratio=1)
     fig.show()
+
+
+def format_colorbar_plot(fig, ax, plot, idcs):
+
+    if hasattr(ax, '__iter__'):
+        for i, axs in enumerate(ax):
+            format_colorbar_plot(fig, axs, plot[i], idcs)
+
+            if i > 0:
+                axs.set_ylabel(None)
+
+            titles = [r'true $y$', r'prediction $\hat y$', r'$|y - \hat y|$']
+            if i < 3:
+                axs.set_title(titles[i])
+
+    else:
+        lbound = np.min(plot.get_offsets().data, axis=0)
+        ubound = np.max(plot.get_offsets().data, axis=0)
+        xticks = np.linspace(lbound[0], ubound[0], 4)
+
+        [ax.ticklabel_format(style='sci', axis=axis, scilimits=(0,0)) for axis in ['x','y']]
+        ax.set_xlabel(rf"$u_{{{int(idcs[0]/2)+1}, {'x' if idcs[0]%2 == 0 else 'y'}}}$", fontsize=12)
+        ax.set_ylabel(rf"$u_{{{int(idcs[1]/2)+1}, {'x' if idcs[1]%2 == 0 else 'y'}}}$", fontsize=12)
+        ax.set_xticks(xticks)
+        fig.colorbar(plot, ax=ax)
+        ax.set_title("Defect location (color) as a function \n of two measurements")
