@@ -122,3 +122,24 @@ def format_colorbar_plot(fig, ax, plot, idcs):
         ax.set_xticks(xticks)
         fig.colorbar(plot, ax=ax)
         ax.set_title("Defect location (color) as a function \n of two measurements")
+
+
+def format_colorbar_pca_plot(fig, ax, plot, modes):
+
+    if hasattr(ax, '__iter__'):
+        for i, axs in enumerate(ax):
+            format_colorbar_pca_plot(fig, axs, plot[i], modes)
+
+            if i > 0:
+                axs.set_ylabel(None)
+
+            titles = [r'true $y$', r'prediction $\hat y$', r'$|y - \hat y|$']
+            if i < 3:
+                axs.set_title(titles[i])
+
+    else:
+        [ax.ticklabel_format(style='sci', axis=axis, scilimits=(0,0)) for axis in ['x','y']]
+        ax.set_xlabel(f'PCA mode {modes[0]}')
+        ax.set_ylabel(f'PCA mode {modes[1]}')
+        fig.colorbar(plot, ax=ax)
+        ax.set_title("Defect location (color) as a function \n of two PCA modes")
