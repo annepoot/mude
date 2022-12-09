@@ -16,11 +16,18 @@ def plotly_plot(df, total_idx=None, measure_locs=None, defect_loc_true=None, def
 
     # Plot displacement
     fig = go.Figure()
+
+    fig.update_layout(
+        autosize=False,
+        width=900,
+        height=400)
+
     fig.add_trace(go.Heatmap(z=grid_z.transpose(),
                              x=grid_x[:,0],
                              y=grid_y[0],
                              hoverinfo='skip',
-                             name='heatmap'))
+                             name='heatmap',
+                             colorbar={'len':0.85}))
 
     # Compute the x and y coordinates in the measurement locations (or all locations, if measure_locs is not specified)
     if measure_locs is None:
@@ -59,20 +66,20 @@ def plotly_plot(df, total_idx=None, measure_locs=None, defect_loc_true=None, def
                         label='y',
                         method='restyle')
                 ]),
-                direction='right', pad={'r': 10, 't': 10}, showactive=True, x=0.5, xanchor='left', y=1.2,
+                direction='right', pad={'r': 10, 't': 10}, showactive=True, x=0.5, xanchor='left', y=1.10,
                 yanchor='bottom', type='buttons', font=dict(size=13)
             ),
         ]
     )
 
     # Add annotation for button
-    fig.add_annotation(dict(font=dict(size=13), x=0.5, y=1.23, showarrow=False,
+    fig.add_annotation(dict(font=dict(size=13), x=0.5, y=1.13, showarrow=False,
                        xref='paper', yref='paper', xanchor='right', yanchor='bottom', text='Displacement: '))
 
     # Plot a vertical line at the true location, if specified
     if defect_loc_true is not None:
         fig.add_vline(x=defect_loc_true, name='truth', line=dict(color='Black'))
-        fig.add_annotation(dict(font=dict(size=13), x=defect_loc_true, y=-.22, showarrow=False,
+        fig.add_annotation(dict(font=dict(size=13), x=defect_loc_true, y=-.05, showarrow=False,
                            xref='x', yref='paper', text='truth: {:.2f}'.format(defect_loc_true)))
 
     # Plot a vertical line at the prediction location, if specified
@@ -83,13 +90,13 @@ def plotly_plot(df, total_idx=None, measure_locs=None, defect_loc_true=None, def
             text = '5 sensor prediction: {:.2f}'.format(defect_loc_pred)
 
         fig.add_vline(x=defect_loc_pred, name='pred', line=dict(color='LightSlateGrey'))
-        fig.add_annotation(dict(font=dict(size=13), x=defect_loc_pred, y=1.15, showarrow=False,
+        fig.add_annotation(dict(font=dict(size=13), x=defect_loc_pred, y=1, showarrow=False,
                            xref='x', yref='paper', text=text))
 
     # Plot a vertical line at the PCA prediction location, if specified
     if defect_loc_pred_PCA is not None:
         fig.add_vline(x=defect_loc_pred_PCA, name='pred_PCA', line=dict(color='LightSlateGrey'), line_dash='dot')
-        fig.add_annotation(dict(font=dict(size=13), x=defect_loc_pred_PCA, y=1.25, showarrow=False,
+        fig.add_annotation(dict(font=dict(size=13), x=defect_loc_pred_PCA, y=1.08, showarrow=False,
                            xref='x', yref='paper', text='PCA prediction: {:.2f}'.format(defect_loc_pred_PCA)))
 
     # Update xaxis range and show figure
