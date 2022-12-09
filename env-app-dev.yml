@@ -15,6 +15,7 @@ dependencies:
   - jupyterlab=3.4.4
   - jupyterlab_vim=0.15.1
   - pip
+  - pyqtwebengine=5.15.4
   - spyder=5.2.2
   - pyvista=0.36.1
   - pip:
