@@ -1,4 +1,4 @@
-name: app-dev
+name: mude-dev
 channels:
   - conda-forge
   - defaults
