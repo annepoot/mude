@@ -135,9 +135,9 @@ class magicplotter:
         # Define a seed to make sure all results are reproducible
         if "seed" in settings:
             self.seed = settings["seed"]
-        else:        
+        else:
             self.seed = 0
-            
+
         # Create an empty dictionary, which will later store all slider values
         self.sliders = {}
         self.sliders_right = {}
@@ -149,19 +149,19 @@ class magicplotter:
 
         # Collect all key word arguments
         kwargs = self.collect_kwargs()
-        
+
         # Store all variables that were passed to the init function
         self.f_data = f_data
         self.f_truth = f_truth
         self.f_pred = f_pred
-        
+
         if (x_data is None) & (y_data is None):
             self.x_data, self.y_data = self.f_data(**kwargs)
             self.keep_data = False
         else:
             self.x_data, self.y_data = x_data, y_data
             self.keep_data = True
-        
+
         self.x_train, self.y_train = self.x_data, self.y_data
         self.x_pred = self.x_data if x_pred is None else x_pred
         # self.y_pred = self.f_pred(self.x_train, self.y_train, self.x_pred, **kwargs)
@@ -176,21 +176,21 @@ class magicplotter:
         self.val_label = settings.get('val_label', r'Validation data $(x,t)$')
         self.probe_label = settings.get('probe_label', r'Probe')
         self.hide_legend = settings.get('hide_legend', False)
-        
+
         # get height and/or width if specified
         if 'height' in settings:
             self.h = settings['height']
 
         if 'width' in settings:
             self.w = settings['width']
-            
+
         # Get the given axes from the settings, or create a new figure
         if 'ax' in settings:
             self.ax = settings['ax']
             self.fig = self.ax.figure
         else:
             self.fig, self.ax = plt.subplots(figsize=(self.w,self.h))
-            
+
         self.ax.set_xlabel('x')
         self.ax.set_ylabel('t')
 
@@ -212,7 +212,7 @@ class magicplotter:
 
 
     def update_data(self, event):
-        
+
         # Go through all sliders in the dictionary, and store their values in a kwargs dict
         kwargs = self.collect_kwargs()
 
@@ -1126,6 +1126,10 @@ class neuralnetplotter(magicplotter):
         self.plot_act, = self.activation_ax.plot([], [])
         self.activation_ax.axis('off')
 
+        # Draw the neural network
+        self.network_ax = self.fig.add_axes([0.72, 0.11, 0.27, 0.27], anchor='SW', zorder=0)
+        self.update_neural_net()
+
     # When a slider is changed, don't do anything except changing the 'Run' button appearance
     def passive(self, event):
 
@@ -1144,13 +1148,9 @@ class neuralnetplotter(magicplotter):
 
     # Function to change the image & buttons when the number of neurons in the model changes
     def change_neurons(self, event):
-        kwargs = self.collect_kwargs()
 
         # Update network image
-        self.network_ax.cla()  # delete previous image
-        self.network_ax.axis('off')
-        draw_neural_net(self.network_ax, .1, .9, .1, .9, [1, kwargs['neurons'], kwargs['neurons'], 1])
-        self.fig.canvas.draw()
+        self.update_neural_net()
 
         # Do standard slider updating
         self.passive(event)
@@ -1291,15 +1291,10 @@ class neuralnetplotter(magicplotter):
 
         # Draw image of the neural network if the number of neurons are optional
         if var == 'neurons':
-            valinit = self.sliders[var].valinit
-            self.network_ax = self.fig.add_axes([0.72, 0.11, 0.27, 0.27], anchor='SW', zorder=0)
-            draw_neural_net(self.network_ax, .1, .9, .1, .9, [1, valinit, valinit, 1])
-            self.network_ax.axis('off')
-            self.fig.canvas.draw()
+            self.update_neural_net()
 
         # Adjust the plot to make room for the added slider
         self.adjust_plot()
-
 
     # Add a radiobutton to the plot
     def add_radiobutton(self, var, **settings):
@@ -1399,7 +1394,6 @@ class neuralnetplotter(magicplotter):
         else:
             return super().get_update_func(update)
 
-
     # Adjust the plot to make room for the sliders
     def adjust_plot(self):
 
@@ -1430,6 +1424,16 @@ class neuralnetplotter(magicplotter):
                  ww,  # width
                  hh])  # height
 
+    # Adjust the figure of the neural net
+    def update_neural_net(self):
+
+        # Collect the kwargs
+        kwargs = self.collect_kwargs()
+
+        self.network_ax.cla()
+        draw_neural_net(self.network_ax, .1, .9, .1, .9, [1, kwargs['neurons'], kwargs['neurons'], 1])
+        self.network_ax.axis('off')
+        self.fig.canvas.draw()
 
     # Define a function that collects all key word arguments
     def collect_kwargs(self):
