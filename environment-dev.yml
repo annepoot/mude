@@ -3,15 +3,21 @@ channels:
   - conda-forge
   - defaults
 dependencies:
+  - python=3.10.8
+  - dash=2.6.1
   - ipympl=0.9.1
   - jupyter=1.0.0
   - jupyterlab=3.4.4
-  - jupyterlab_vim=0.15.1
+  - jupyter-dash=0.4.2
   - matplotlib=3.5.2
   - numpy=1.22.3
-  - pip
+  - pandas=1.4.3
   - scikit-learn=1.0.2
+    # additional packages for development purposes
+  - jupyterlab_vim=0.15.1
+  - pip
+  - pyqtwebengine=5.15.4
   - spyder=5.2.2
   - pip:
-    - nbdime
-    - nbmerge
+    - nbdime==3.1.1
+    - nbmerge==0.0.4
