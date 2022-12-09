@@ -3,6 +3,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
+  - python=3.10.8
   - dash=2.6.1
   - ipympl=0.9.1
   - jupyter=1.0.0
