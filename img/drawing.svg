@@ -10,7 +10,7 @@
    inkscape:export-filename="/home/joep/Documents/Education/Course_Development/MUDE/Notebooks/mude-app_regression/img/beam_structure2.png"
    inkscape:export-xdpi="96"
    inkscape:export-ydpi="96"
-   inkscape:version="1.1.2 (1:1.1+202202050852+0a00cf5339)"
+   inkscape:version="1.1.2 (0a00cf5339, 2022-02-04)"
    sodipodi:docname="drawing.svg"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
@@ -28,14 +28,14 @@
      showgrid="false"
      inkscape:snap-intersection-paths="true"
      inkscape:snap-midpoints="true"
-     inkscape:zoom="0.56441565"
-     inkscape:cx="279.04967"
-     inkscape:cy="43.407726"
-     inkscape:window-width="1848"
-     inkscape:window-height="1016"
-     inkscape:window-x="72"
-     inkscape:window-y="27"
-     inkscape:window-maximized="1"
+     inkscape:zoom="0.28220783"
+     inkscape:cx="370.29448"
+     inkscape:cy="-506.71876"
+     inkscape:window-width="1046"
+     inkscape:window-height="1027"
+     inkscape:window-x="964"
+     inkscape:window-y="8"
+     inkscape:window-maximized="0"
      inkscape:current-layer="layer1" />
   <defs
      id="defs2" />
@@ -67,59 +67,59 @@
        r="1.142" />
     <path
        style="fill:none;stroke:#ff0000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       d="m 59.459788,68.453051 v 3.507007"
+       d="m 59.459788,60.515546 v 3.507007"
        id="path4230" />
     <path
        style="fill:none;stroke:#ff0000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       d="m 58.728872,58.086596 v 3.507007"
+       d="m 58.728872,50.149091 v 3.507007"
        id="path4366" />
     <path
        style="fill:none;stroke:#ff0000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       d="m 50.612317,59.399462 v 3.507007"
+       d="m 50.612317,51.461957 v 3.507007"
        id="path4368" />
     <path
        style="fill:none;stroke:#ff0000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       d="m 50.592459,65.493711 v 3.507007"
+       d="m 50.592459,57.556206 v 3.507007"
        id="path4370" />
     <path
        style="fill:none;stroke:#ff0000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       d="m 46.319623,64.207507 v 3.507007"
+       d="m 46.319623,56.270002 v 3.507007"
        id="path4372" />
     <path
        style="fill:none;stroke:#ff0000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       d="m 52.819393,59.460556 v 3.507007"
+       d="m 52.819393,51.523051 v 3.507007"
        id="path4374" />
     <path
        style="fill:none;stroke:#ff0000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       d="m 46.849274,58.718059 v 3.507007"
+       d="m 46.849274,50.780554 v 3.507007"
        id="path4376" />
     <path
        style="fill:none;stroke:#ff0000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       d="m 58.354425,61.758652 v 3.507007"
+       d="m 58.354425,53.821147 v 3.507007"
        id="path4378" />
     <path
        style="fill:none;stroke:#ff0000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       d="m 53.823464,53.367252 v 3.507007"
+       d="m 53.823464,45.429747 v 3.507007"
        id="path4380" />
     <path
        style="fill:none;stroke:#ff0000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       d="m 48.720144,67.671821 v 3.507007"
+       d="m 48.720144,59.734316 v 3.507007"
        id="path4382" />
     <path
        style="fill:none;stroke:#ff0000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       d="m 52.844744,68.625024 v 3.507007"
+       d="m 52.844744,60.687519 v 3.507007"
        id="path4384" />
     <path
        style="fill:none;stroke:#ff0000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       d="m 55.803801,64.608015 v 3.507007"
+       d="m 55.803801,56.67051 v 3.507007"
        id="path4386" />
     <path
        style="fill:none;stroke:#ff0000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       d="m 55.487152,57.660411 v 3.507007"
+       d="m 55.487152,49.722906 v 3.507007"
        id="path4388" />
     <path
        style="fill:none;stroke:#ff0000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       d="m 48.875067,54.488918 v 3.507007"
+       d="M 48.875067,46.551413 V 50.05842"
        id="path4390" />
     <path
        style="fill:none;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
